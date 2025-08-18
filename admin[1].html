@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>Inventory Admin</title>
+  <style>
+    :root { --bg:#f6f7fb; --card:#fff; --text:#0f172a; --muted:#475569; --line:#e2e8f0; --accent:#0ea5e9; --shadow:0 8px 24px rgba(15,23,42,.06); --radius:16px; --gap:12px; }
+    *{ box-sizing:border-box } body{ margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial }
+    header{ position:sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid var(--line) } .wrap{ max-width:620px; margin:0 auto; padding:12px }
+    h1{ font-size:18px; margin:6px 0 } .btns{ display:flex; gap:8px; flex-wrap:wrap } button,.btn{ display:inline-flex; align-items:center; gap:8px; height:36px; padding:0 12px; border:1px solid var(--line); background:#fff; color:var(--text); border-radius:12px; cursor:pointer }
+    .panel{ background:#fff; border-bottom:1px solid var(--line) } .panel .inner{ max-width:620px; margin:0 auto; padding:12px; display:grid; gap:10px }
+    .grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px } .field{ display:flex; flex-direction:column; gap:6px } label{ font-size:12px; color:var(--muted) }
+    input,select{ height:40px; border:1px solid var(--line); border-radius:12px; padding:0 10px; font-size:16px } .drop{ position:relative; border:2px dashed #cbd5e1; border-radius:14px; padding:10px; min-height:140px; display:grid; place-items:center; background:#f8fafc }
+    .drop input{ position:absolute; inset:0; opacity:0; cursor:pointer } .drop .hint{ color:var(--muted); font-size:14px } .drop img{ max-width:100%; border-radius:10px; display:none }
+    .list{ display:grid; grid-template-columns:1fr; gap:var(--gap); padding:12px } .card{ background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); overflow:hidden }
+    .photo{ width:100%; aspect-ratio:4/3; background:#e5e7eb } .photo img{ width:100%; height:100%; object-fit:cover; display:block } .info{ padding:10px 12px 12px; display:flex; flex-direction:column; gap:6px } .line{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; white-space:nowrap; overflow:hidden }
+    .title{ font-weight:600; overflow:hidden; text-overflow:ellipsis } .miles{ color:var(--muted) } .price{ font-weight:700 }
+  </style>
+</head>
+<body>
+  <header><div class="wrap"><h1>Inventory Admin</h1><div class="btns">
+    <a class="btn" href="./index.html">View site</a>
+    <button id="exportBtn">Export inventory.json</button>
+    <label class="btn" for="importFile">Import</label><input id="importFile" type="file" accept="application/json" style="display:none"/>
+    <button id="clearBtn">Clear</button>
+  </div></div></header>
+
+  <div class="panel">
+    <div class="inner">
+      <h2 style="font-size:16px;margin:0">Add / Edit</h2>
+      <div class="grid">
+        <div class="field"><label>Year</label><input type="number" id="year" placeholder="2020"/></div>
+        <div class="field"><label>Model</label><select id="model"><option>Model 3</option><option>Model Y</option><option>Model S</option><option>Model X</option><option>Other</option></select></div>
+        <div class="field" style="grid-column: span 2;"><label>Trim</label><input type="text" id="trim" placeholder="Standard Plus"/></div>
+        <div class="field"><label>Mileage</label><input type="number" id="mileage" placeholder="66000"/></div>
+        <div class="field"><label>Price (USD)</label><input type="number" id="price" placeholder="19000"/></div>
+      </div>
+      <div class="field">
+        <label>Photo (4:3 shown; auto-compress)</label>
+        <div class="drop" id="drop"><input type="file" id="photoInput" accept="image/*"/><div class="hint" id="dropHint">Tap to select</div><img id="photoPreview" alt="preview"/></div>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button id="saveBtn" style="background:#0ea5e9;color:#fff;border-color:transparent">Save</button>
+        <button id="newBtn">New</button>
+      </div>
+      <p class="muted" style="margin:6px 0 0;">To publish: click <b>Export inventory.json</b>, then upload that file to your GitHub repo (root). Your public site reads it automatically.</p>
+    </div>
+  </div>
+
+  <main><div id="list" class="list"></div><p id="emptyState" class="muted" style="text-align:center; margin:24px 0;">No cars yet.</p></main>
+
+  <script>
+    const storeKey='tesla_inventory_v1'; let cars=load(); let editingId=null;
+    const listEl=document.getElementById('list'), emptyEl=document.getElementById('emptyState');
+    const yearEl=document.getElementById('year'), modelEl=document.getElementById('model'), trimEl=document.getElementById('trim'), mileageEl=document.getElementById('mileage'), priceEl=document.getElementById('price');
+    const drop=document.getElementById('drop'), photoInput=document.getElementById('photoInput'), photoPreview=document.getElementById('photoPreview'), dropHint=document.getElementById('dropHint');
+    const saveBtn=document.getElementById('saveBtn'), newBtn=document.getElementById('newBtn');
+    const exportBtn=document.getElementById('exportBtn'), importFile=document.getElementById('importFile'), clearBtn=document.getElementById('clearBtn');
+
+    function load(){ try{ return JSON.parse(localStorage.getItem(storeKey)||'[]'); } catch { return []; } }
+    function save(){ localStorage.setItem(storeKey, JSON.stringify(cars)); }
+    function id(){ return Math.random().toString(36).slice(2,10); }
+    function fmtPrice(n){ try { return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n);} catch { return '$'+(n||0);} }
+    function fmtMiles(n){ try { return new Intl.NumberFormat('en-US').format(n)+' mi'; } catch { return (n||0)+' mi'; } }
+    function sortCars(){ cars.sort((a,b)=>(a.addedAt||0)-(b.addedAt||0)||(a.year||0)-(b.year||0)); }
+
+    function render(){ sortCars(); listEl.innerHTML=''; if(!cars.length){ emptyEl.style.display='block'; return;} emptyEl.style.display='none'; cars.forEach(c=>listEl.appendChild(card(c))); }
+    function card(c){ const el=document.createElement('div'); el.className='card';
+      const ph=document.createElement('div'); ph.className='photo'; const img=document.createElement('img'); img.src=c.photo||placeholder(); img.alt=c.model; ph.appendChild(img);
+      const info=document.createElement('div'); info.className='info';
+      const line=document.createElement('div'); line.className='line';
+      const title=document.createElement('div'); title.className='title'; title.textContent=`${c.year||''} ${c.model||''} ${c.trim||''}`.replace(/\s+/g,' ').trim();
+      const miles=document.createElement('div'); miles.className='miles'; miles.textContent=fmtMiles(c.mileage||0); line.appendChild(title); line.appendChild(miles);
+      const line2=document.createElement('div'); line2.className='line'; line2.innerHTML=`<b class='price'>${fmtPrice(c.price||0)}</b><span class='muted' style='font-size:12px;'>${c.addedAt? new Date(c.addedAt).toLocaleDateString():''}</span>`;
+      info.appendChild(line); info.appendChild(line2); el.appendChild(ph); el.appendChild(info);
+      el.addEventListener('click', ()=>edit(c.id));
+      return el; }
+
+    function resetForm(){ editingId=null; yearEl.value=''; modelEl.value='Model 3'; trimEl.value=''; mileageEl.value=''; priceEl.value=''; photoPreview.src=''; photoPreview.style.display='none'; dropHint.style.display='block'; }
+    newBtn.addEventListener('click', resetForm);
+
+    function edit(id){ const c=cars.find(x=>x.id===id); if(!c) return; editingId=id; yearEl.value=c.year||''; modelEl.value=c.model||'Model 3'; trimEl.value=c.trim||''; mileageEl.value=c.mileage||''; priceEl.value=c.price||'';
+      if(c.photo){ photoPreview.src=c.photo; photoPreview.style.display='block'; dropHint.style.display='none'; } else { photoPreview.src=''; photoPreview.style.display='none'; dropHint.style.display='block'; }
+      window.scrollTo({top:0, behavior:'smooth'});
+    }
+
+    async function onSave(){ const year=parseInt(yearEl.value,10)||''; const model=modelEl.value||''; const trim=trimEl.value.trim(); const mileage=parseInt(mileageEl.value,10)||0; const price=parseInt(priceEl.value,10)||0;
+      const photo=photoPreview.src && photoPreview.style.display!=='none' ? photoPreview.src : ''; if(!year||!model||!price){ alert('Year, Model, and Price are required.'); return; }
+      if(!editingId){ cars.push({ id:id(), year, model, trim, mileage, price, photo, addedAt:Date.now() }); } else { const i=cars.findIndex(x=>x.id===editingId); if(i!==-1){ const prev=cars[i]; const prevPrice=prev.price; cars[i]={...prev, year, model, trim, mileage, price, photo}; if(typeof prevPrice==='number'&&price<prevPrice) cars[i].prevPrice=prevPrice; } }
+      save(); render(); resetForm(); }
+    saveBtn.addEventListener('click', onSave);
+
+    photoInput.addEventListener('change', async (e)=>{ const f=e.target.files[0]; if(!f) return; const url=await compress(f,1200,0.86); photoPreview.src=url; photoPreview.style.display='block'; dropHint.style.display='none'; });
+    async function compress(file,maxW=1200,quality=0.86){ const img=await toImg(file); const scale=Math.min(1,maxW/img.width), w=Math.round(img.width*scale), h=Math.round(img.height*scale); const c=document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); return c.toDataURL('image/jpeg',quality); }
+    function toImg(file){ return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=fr.result; }; fr.onerror=rej; fr.readAsDataURL(file); }); }
+    function placeholder(){ const s=`<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600' viewBox='0 0 800 600'><rect width='800' height='600' fill='#e5e7eb'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#94a3b8' font-family='system-ui' font-size='28'>Photo</text></svg>`; return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(s); }
+
+    function exportJSON(){ const blob=new Blob([JSON.stringify(cars,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); const stamp=new Date().toISOString().slice(0,10); a.href=url; a.download='inventory.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
+    exportBtn.addEventListener('click', exportJSON);
+    importFile.addEventListener('change', async (e)=>{ const f=e.target.files[0]; if(!f) return; try{ const t=await f.text(); const data=JSON.parse(t); if(!Array.isArray(data)) throw new Error('bad'); cars=data; save(); render(); }catch{ alert('Import failed'); } importFile.value=''; });
+    clearBtn.addEventListener('click', ()=>{ if(!cars.length) return; if(!confirm('Clear all cars?')) return; cars=[]; save(); render(); });
+
+    render();
+  </script>
+</body>
+</html>
