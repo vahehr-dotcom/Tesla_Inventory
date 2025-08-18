@@ -37,7 +37,17 @@ button{height:36px;padding:0 12px;border:1px solid var(--line);background:#fff;b
 /* Sheet body */
 .body{padding:12px;display:grid;gap:8px}
 .spec{display:flex;justify-content:space-between;gap:10px}
-.actions{display:flex;gap:8px;flex-wrap:wrap}
+.actions{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center}
+.actions .cta{
+  grid-column:1 / -1;
+  height:48px;
+  border-radius:12px;
+  background:#0ea5e9;
+  color:#fff;
+  border:1px solid transparent;
+  font-weight:700;
+  font-size:16px;
+}
 </style>
 </head><body>
 <header><div class="wrap" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
@@ -68,18 +78,18 @@ button{height:36px;padding:0 12px;border:1px solid var(--line);background:#fff;b
       <div class="spec"><div id="mMiles" class="muted"></div><div id="mPrice" class="price"></div></div>
       <div id="mNotes" class="muted" style="white-space:pre-wrap"></div>
       <div class="actions">
+        <button id="smsBtn" class="cta">Contact us</button>
         <button id="shareCar">Share car</button>
         <button id="copyLink">Copy link</button>
-        <button id="smsBtn" style="display:none">Text seller</button>
       </div>
     </div>
   </div>
 </div>
 
 <script>
-// ====== EDIT THIS LINE WITH YOUR CELL TO SHOW THE "Text seller" BUTTON ======
-const PHONE = ""; // Example: "+18185551234"  (leave "" to hide the button)
-// ==========================================================================
+// ====== Your hidden SMS number (used by the button; not shown on page) ======
+const PHONE = "+14244256211";
+// ===========================================================================
 
 // Utils
 const statusEl=document.getElementById('status'), list=document.getElementById('list');
@@ -101,7 +111,8 @@ function render(cars){
   for(const c of cars){
     const card=document.createElement('div'); card.className='card';
     const ph=document.createElement('div'); ph.className='photo';
-    const img=document.createElement('img'); img.src=(c.photos&&c.photos[0])||c.photo||placeholder(); img.alt=(c.model||'Car')+' photo'; ph.appendChild(img);
+    const img=document.createElement('img'); img.loading='lazy'; img.decoding='async';
+    img.src=(c.photos&&c.photos[0])||c.photo||placeholder(); img.alt=(c.model||'Car')+' photo'; ph.appendChild(img);
     const info=document.createElement('div'); info.className='info';
     const r1=document.createElement('div'); r1.className='row';
     const t=document.createElement('div'); t.className='title'; t.textContent=`${c.year||''} ${c.model||''} ${c.trim||''}`.replace(/\s+/g,' ').trim();
@@ -124,7 +135,6 @@ function openModal(id){
   const imgs = (current.photos && current.photos.length? current.photos : (current.photo?[current.photo]:[]));
   buildCarousel(imgs.length? imgs : [placeholder()]);
   const deep = new URL(location.href); deep.hash = 'car=' + current.id; history.replaceState(null,'',deep);
-  smsBtn.style.display = PHONE ? 'inline-flex' : 'none'; // SMS only
   modal.classList.add('open'); document.body.style.overflow='hidden';
 }
 function closeModal(){ modal.classList.remove('open'); document.body.style.overflow=''; const u=new URL(location.href); u.hash=''; history.replaceState(null,'',u); }
@@ -144,7 +154,7 @@ function go(i){ const slides=[...track.children]; if(!slides.length) return; idx
 function onScrollSync(){ const slides=[...track.children]; const x=track.scrollLeft, w=track.clientWidth; const i=Math.round(x/w); if(i!==idx){ idx=i; syncDots(); } }
 function syncDots(){ [...dots.children].forEach((d,j)=> d.classList.toggle('active', j===idx)); }
 
-// Share / copy / SMS
+// Share / copy / SMS (number hidden in UI)
 function carLink(id){ const u=new URL(location.href); u.hash='car='+id; return u.href; }
 shareCar.addEventListener('click', async ()=>{
   if(!current) return; const url=carLink(current.id); const title=mTitle.textContent;
@@ -152,8 +162,21 @@ shareCar.addEventListener('click', async ()=>{
   try{ if(navigator.share){ await navigator.share({title, text, url}); } else throw 0; }catch{ await copyText(url); alert('Link copied:\n'+url); }
 });
 copyLink.addEventListener('click', async ()=>{ if(!current) return; const url=carLink(current.id); await copyText(url); alert('Link copied:\n'+url); });
-smsBtn.addEventListener('click', ()=>{ if(!current||!PHONE) return; const msg=encodeURIComponent(`Hi! I'm interested in the ${mTitle.textContent} for ${fmtPrice(current.price)}.`); location.href=`sms:${PHONE}?&body=${msg}`; });
-async function copyText(t){ if(navigator.clipboard && window.isSecureContext){ return navigator.clipboard.writeText(t) } const el=document.createElement('textarea'); el.value=t; document.body.appendChild(el); el.select(); document.execCommand('copy'); el.remove(); }
+
+smsBtn.addEventListener('click', ()=>{
+  if(!current) return;
+  const model = current.model || 'your vehicle';
+  const price = fmtPrice(current.price||0);
+  const msg = `Hello, I'm interested in your ${model} for ${price} please contact me.`;
+  const body = encodeURIComponent(msg);
+  const num = PHONE.replace(/[^0-9+]/g,'');
+  // iOS/Android compatible pattern
+  location.href = `sms:${num}?&body=${body}`;
+});
+
+async function copyText(t){ if(navigator.clipboard && window.isSecureContext){ return navigator.clipboard.writeText(t) }
+  const el=document.createElement('textarea'); el.value=t; document.body.appendChild(el); el.select(); document.execCommand('copy'); el.remove();
+}
 
 // Load + deep-link
 fetch('./inventory.json?ts='+Date.now(), {cache:'no-store'})
