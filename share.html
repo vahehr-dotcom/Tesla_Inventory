@@ -25,6 +25,23 @@
     .price{ font-weight:700; font-variant-numeric:tabular-nums }
     .muted{ color:var(--muted) }
     body.snapshot header .btns{ display:none }
+
+    /* Modal */
+    .modal{ position:fixed; inset:0; background:rgba(15,23,42,.6); display:none; align-items:center; justify-content:center; padding:12px; }
+    .modal.open{ display:flex }
+    .sheet{ width:100%; max-width:720px; max-height:100%; overflow:auto; background:#fff; border-radius:16px; box-shadow:var(--shadow) }
+    .sheet .hero{ position:relative; background:#000 }
+    .sheet .hero img{ width:100%; height:54vw; max-height:420px; object-fit:cover; display:block }
+    .navbtn{ position:absolute; top:50%; transform:translateY(-50%); border:0; background:rgba(255,255,255,.8); border-radius:999px; width:36px; height:36px; cursor:pointer }
+    .navbtn.prev{ left:8px } .navbtn.next{ right:8px }
+    .closebtn{ position:absolute; top:8px; right:8px; border:0; background:rgba(255,255,255,.9); border-radius:999px; width:36px; height:36px; cursor:pointer }
+    .dots{ position:absolute; bottom:8px; left:0; right:0; display:flex; justify-content:center; gap:6px }
+    .dot{ width:8px; height:8px; border-radius:999px; background:rgba(255,255,255,.6) } .dot.active{ background:#fff }
+    .sheet .body{ padding:12px }
+    .row{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:6px }
+    .big{ font-size:18px; font-weight:700 } .muted2{ color:#475569 }
+    .notes{ margin-top:8px; color:#0f172a; line-height:1.4; white-space:pre-wrap }
+    .actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:12px }
   </style>
 </head>
 <body>
@@ -42,11 +59,57 @@
     </div>
   </main>
 
+  <!-- Modal -->
+  <div id="modal" class="modal" aria-hidden="true">
+    <div class="sheet">
+      <div class="hero">
+        <img id="heroImg" src="" alt="photo" />
+        <button class="navbtn prev" id="prevBtn">‹</button>
+        <button class="navbtn next" id="nextBtn">›</button>
+        <button class="closebtn" id="closeBtn">✕</button>
+        <div class="dots" id="dots"></div>
+      </div>
+      <div class="body">
+        <div class="row">
+          <div class="big" id="title"></div>
+          <div class="big" id="price"></div>
+        </div>
+        <div class="muted2" id="miles"></div>
+        <div class="notes" id="notes"></div>
+        <div class="actions">
+          <button id="shareCarBtn">Share</button>
+          <button id="copyLinkBtn">Copy link</button>
+          <!-- Contact button placeholder - we’ll wire it to SMS/WhatsApp/email later -->
+          <button id="contactBtn">Contact</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     const list=document.getElementById('list'), empty=document.getElementById('empty'), snapshotBtn=document.getElementById('snapshotBtn');
+    const modal=document.getElementById('modal'), heroImg=document.getElementById('heroImg'), dots=document.getElementById('dots');
+    const prevBtn=document.getElementById('prevBtn'), nextBtn=document.getElementById('nextBtn'), closeBtn=document.getElementById('closeBtn');
+    const titleEl=document.getElementById('title'), priceEl=document.getElementById('price'), milesEl=document.getElementById('miles'), notesEl=document.getElementById('notes');
+    const shareCarBtn=document.getElementById('shareCarBtn'), copyLinkBtn=document.getElementById('copyLinkBtn'), contactBtn=document.getElementById('contactBtn');
+    let data=[], current=null, idx=0;
 
     function fmtPrice(n){ try { return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n);} catch { return '$'+(n||0);} }
     function fmtMiles(n){ try { return new Intl.NumberFormat('en-US').format(n)+' mi'; } catch { return (n||0)+' mi'; } }
+    function placeholder(){ const s=`<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600' viewBox='0 0 800 600'><rect width='800' height='600' fill='#e5e7eb'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#94a3b8' font-family='system-ui' font-size='28'>Photo</text></svg>`; return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(s); }
+
+    async function load(){
+      try{
+        const res=await fetch('./inventory.json?ts='+Date.now(), {cache:'no-store'});
+        if(!res.ok) throw 0;
+        const items=await res.json();
+        data=Array.isArray(items)?items:[];
+        render(data);
+        // deep link
+        const hash=new URL(location.href).hash;
+        if(hash.startsWith('#car=')){ const id=hash.slice(5); const c=data.find(x=>x.id===id); if(c) open(c,0,false); }
+      } catch { render([]); }
+    }
 
     function render(items){
       list.innerHTML='';
@@ -55,7 +118,8 @@
       items.forEach(c=>{
         const card=document.createElement('div'); card.className='card';
         const ph=document.createElement('div'); ph.className='photo';
-        const img=document.createElement('img'); img.src=c.photo||placeholder(); img.alt=c.model; ph.appendChild(img);
+        const first=(c.photos&&c.photos[0])||c.photo||placeholder();
+        const img=document.createElement('img'); img.src=first; img.alt=c.model; ph.appendChild(img);
         const info=document.createElement('div'); info.className='info';
         const l1=document.createElement('div'); l1.className='line';
         const t=document.createElement('div'); t.className='title'; t.textContent=`${c.year||''} ${c.model||''} ${c.trim||''}`.replace(/\s+/g,' ').trim();
@@ -64,23 +128,11 @@
         const l2=document.createElement('div'); l2.className='line';
         l2.innerHTML = `<b class='price'>${fmtPrice(c.price||0)}</b><span class='muted' style='font-size:12px;'>${c.addedAt? new Date(c.addedAt).toLocaleDateString():''}</span>`;
         info.appendChild(l1); info.appendChild(l2);
-        card.appendChild(ph); card.appendChild(info); list.appendChild(card);
+        card.appendChild(ph); card.appendChild(info);
+        card.addEventListener('click', ()=> open(c,0,true));
+        list.appendChild(card);
       });
       adjustSnapshotHeights();
-    }
-
-    function placeholder(){
-      const s=`<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600' viewBox='0 0 800 600'><rect width='800' height='600' fill='#e5e7eb'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#94a3b8' font-family='system-ui' font-size='28'>Photo</text></svg>`;
-      return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(s);
-    }
-
-    async function load(){
-      try{
-        const res=await fetch('./inventory.json?ts='+Date.now(), {cache:'no-store'});
-        if(!res.ok) throw 0;
-        const data=await res.json();
-        render(Array.isArray(data)?data:[]);
-      } catch { render([]); }
     }
 
     function adjustSnapshotHeights(){
@@ -95,13 +147,12 @@
     }
 
     document.getElementById('snapshotBtn').addEventListener('click', ()=>{
-      document.body.classList.toggle('snapshot');
-      adjustSnapshotHeights();
-      window.scrollTo({top:0, behavior:'instant'});
+      document.body.classList.toggle('snapshot'); adjustSnapshotHeights(); window.scrollTo({top:0, behavior:'instant'});
     });
     window.addEventListener('resize', ()=>{ if(document.body.classList.contains('snapshot')) adjustSnapshotHeights(); });
 
-    load();
-  </script>
-</body>
-</html>
+    // -------- Modal logic --------
+    function photosOf(c){ return (Array.isArray(c.photos) && c.photos.length ? c.photos : (c.photo?[c.photo]:[])) }
+    function open(c,startIndex=0,updateHash=true){
+      current=c; idx=Math.max(0, Math.min(startIndex, photosOf(c).length-1)); if(updateHash) location.hash = 'car='+c.id;
+      titleEl.textContent = `${c.year||''} ${c.model||''}
