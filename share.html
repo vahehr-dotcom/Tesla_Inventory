@@ -1,95 +1,61 @@
-<!DOCTYPE html><html lang="en"><head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+<!DOCTYPE html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Current Inventory</title>
 <style>
-:root{--bg:#f6f7fb;--card:#fff;--text:#0f172a;--muted:#475569;--line:#e2e8f0;--gap:12px}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
-header{position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid var(--line)}
-.wrap{max-width:620px;margin:0 auto;padding:12px}
-h1{font-size:18px;margin:6px 0}.btns{display:flex;gap:8px}
-button{height:36px;padding:0 12px;border:1px solid var(--line);background:#fff;border-radius:12px;cursor:pointer}
-.list{display:grid;grid-template-columns:1fr;gap:var(--gap);padding:12px}
-.card{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden}
-.photo{width:100%;background:#e5e7eb}
-.photo img{display:block;width:100%;height:220px;object-fit:cover}
-.info{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px}
-.line{display:flex;justify-content:space-between;gap:10px;white-space:nowrap;overflow:hidden}
-.title{font-weight:600;overflow:hidden;text-overflow:ellipsis}
-.miles{color:var(--muted)}.price{font-weight:700}
-.muted{color:var(--muted);font-size:12px}
-body.snapshot .photo img{height:160px}
+  :root{--bg:#f6f7fb;--text:#0f172a;--line:#e2e8f0}
+  *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+  header{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--line)}
+  .wrap{max-width:620px;margin:0 auto;padding:12px}
+  h1{font-size:18px;margin:6px 0}
+  .list{display:grid;grid-template-columns:1fr;gap:12px;padding:12px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .photo{width:100%;height:220px;background:#e5e7eb}
+  .photo img{width:100%;height:100%;object-fit:cover;display:block}
+  .info{padding:10px 12px 12px}
+  .row{display:flex;justify-content:space-between;gap:10px;white-space:nowrap;overflow:hidden}
+  .title{font-weight:600;overflow:hidden;text-overflow:ellipsis}
+  .muted{color:#475569;font-size:12px}
+  .price{font-weight:700}
 </style>
-</head><body>
-<header>
-  <div class="wrap" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-    <h1>Current Inventory</h1>
-    <div class="btns"><button id="snapshotBtn">Snapshot</button></div>
-  </div>
-</header>
+<header><div class="wrap"><h1>Current Inventory</h1></div></header>
 <main><div class="wrap">
-  <div id="list" class="list"></div>
-  <p id="empty" class="muted" style="text-align:center;display:none">No inventory yet.</p>
+  <div id="status" class="muted">Loading…</div>
+  <div id="list" class="list" hidden></div>
 </div></main>
-
 <script>
-const list=document.getElementById('list'), empty=document.getElementById('empty');
-const byOldest=(a,b)=>(a.addedAt||0)-(b.addedAt||0)||(a.year||0)-(b.year||0);
-function $,tag(n,c){const e=document.createElement(n); if(c) e.className=c; return e;}
-function fmtPrice(n){try{return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n)}catch{return'$'+(n||0)}}
-function fmtMiles(n){try{return new Intl.NumberFormat('en-US').format(n)+' mi'}catch{return(n||0)+' mi'}}
+(function(){
+  const status=document.getElementById('status'), list=document.getElementById('list');
+  const fmtPrice=n=>{try{return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n)}catch{return'$'+(n||0)}};
+  const fmtMiles=n=>{try{return new Intl.NumberFormat('en-US').format(n)+' mi'}catch{return(n||0)+' mi'}};
+  const placeholder=()=> 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='800' height='600' fill='#e5e7eb'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#94a3b8' font-family='system-ui' font-size='28'>Photo</text></svg>");
 
-// Render cards
-function render(cars){
-  list.innerHTML='';
-  if(!Array.isArray(cars)||!cars.length){ empty.style.display='block'; return; }
-  empty.style.display='none';
-  cars.sort(byOldest).forEach(c=>{
-    const card=$('div','card');
-    const ph=$('div','photo');
-    const img=$('img'); img.loading='lazy'; img.decoding='async';
-    img.src = (c.photo || (c.photos&&c.photos[0]) || placeholder());
-    img.alt = (c.model||'Car')+' photo';
-    ph.appendChild(img);
-
-    const info=$('div','info');
-    const l1=$('div','line');
-    const title=$('div','title'); title.textContent=`${c.year||''} ${c.model||''} ${c.trim||''}`.replace(/\s+/g,' ').trim();
-    const miles=$('div','miles'); miles.textContent=fmtMiles(c.mileage||0);
-    l1.appendChild(title); l1.appendChild(miles);
-
-    const l2=$('div','line');
-    l2.innerHTML=`<b class="price">${fmtPrice(c.price||0)}</b><span class="muted">${c.addedAt? new Date(c.addedAt).toLocaleDateString():''}</span>`;
-
-    info.appendChild(l1); info.appendChild(l2);
-    card.appendChild(ph); card.appendChild(info);
-    list.appendChild(card);
-  });
-}
-
-function placeholder(){
-  const s=`<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600' viewBox='0 0 800 600'>
-    <rect width='800' height='600' fill='#e5e7eb'/>
-    <text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#94a3b8' font-family='system-ui' font-size='28'>Photo</text>
-  </svg>`;
-  return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(s);
-}
-
-// Load data (with cache-buster)
-(async()=>{
-  try{
-    const res = await fetch('./inventory.json?ts='+Date.now(), {cache:'no-store'});
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const data = await res.json();
-    render(data);
-  }catch(err){
-    document.body.innerHTML = "<div style='padding:16px;font-family:system-ui'><h3>Viewer error</h3><p class='muted'>Couldn’t load inventory.json. Check the file exists and is valid JSON.</p><pre style='white-space:pre-wrap;background:#f1f5f9;padding:8px;border-radius:8px'>"+(err.message||err)+"</pre></div>";
+  function render(cars){
+    list.innerHTML='';
+    if(!Array.isArray(cars)||!cars.length){ status.textContent='No inventory yet.'; return; }
+    status.hidden=true; list.hidden=false;
+    cars.sort((a,b)=>(a.addedAt||0)-(b.addedAt||0)||(a.year||0)-(b.year||0));
+    for(const c of cars){
+      const card=document.createElement('div'); card.className='card';
+      const ph=document.createElement('div'); ph.className='photo';
+      const img=document.createElement('img'); img.loading='lazy'; img.decoding='async';
+      img.src=(c.photo||(c.photos&&c.photos[0])||placeholder()); img.alt=(c.model||'Car')+' photo';
+      ph.appendChild(img);
+      const info=document.createElement('div'); info.className='info';
+      const r1=document.createElement('div'); r1.className='row';
+      const t=document.createElement('div'); t.className='title'; t.textContent=`${c.year||''} ${c.model||''} ${c.trim||''}`.replace(/\s+/g,' ').trim();
+      const miles=document.createElement('div'); miles.className='muted'; miles.textContent=fmtMiles(c.mileage||0);
+      r1.appendChild(t); r1.appendChild(miles);
+      const r2=document.createElement('div'); r2.className='row';
+      r2.innerHTML=`<b class="price">${fmtPrice(c.price||0)}</b><span class="muted">${c.addedAt? new Date(c.addedAt).toLocaleDateString():''}</span>`;
+      info.appendChild(r1); info.appendChild(r2);
+      card.appendChild(ph); card.appendChild(info); list.appendChild(card);
+    }
   }
-})();
 
-// Snapshot button (fits ~3 per screen)
-document.getElementById('snapshotBtn').addEventListener('click',()=>{
-  document.body.classList.toggle('snapshot');
-  window.scrollTo({top:0,behavior:'instant'});
-});
+  fetch('./inventory.json?ts='+Date.now(), {cache:'no-store'})
+    .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(render)
+    .catch(err=>{
+      status.innerHTML = "Viewer error. Check <code>inventory.json</code> exists and is valid.<br>"+(err.message||err);
+    });
+})();
 </script>
-</body></html>
