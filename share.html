@@ -70,23 +70,22 @@ button{height:36px;padding:0 12px;border:1px solid var(--line);background:#fff;b
       <div class="actions">
         <button id="shareCar">Share car</button>
         <button id="copyLink">Copy link</button>
-        <!-- Contact buttons appear if PHONE is set in config -->
         <button id="smsBtn" style="display:none">Text seller</button>
-        <button id="waBtn" style="display:none">WhatsApp</button>
       </div>
     </div>
   </div>
 </div>
 
 <script>
-// --- Simple config (set your phone once if you want contact buttons) ---
-const PHONE = ""; // e.g., "+18185551234" (keep quotes). Leave "" to hide contact buttons.
+// ====== EDIT THIS LINE WITH YOUR CELL TO SHOW THE "Text seller" BUTTON ======
+const PHONE = ""; // Example: "+18185551234"  (leave "" to hide the button)
+// ==========================================================================
 
-// --- Utils ---
+// Utils
 const statusEl=document.getElementById('status'), list=document.getElementById('list');
 const modal=document.getElementById('modal'), mTitle=document.getElementById('mTitle'), mMiles=document.getElementById('mMiles'), mPrice=document.getElementById('mPrice'), mNotes=document.getElementById('mNotes');
 const track=document.getElementById('track'), dots=document.getElementById('dots'), prev=document.getElementById('prev'), next=document.getElementById('next');
-const shareCar=document.getElementById('shareCar'), copyLink=document.getElementById('copyLink'), smsBtn=document.getElementById('smsBtn'), waBtn=document.getElementById('waBtn');
+const shareCar=document.getElementById('shareCar'), copyLink=document.getElementById('copyLink'), smsBtn=document.getElementById('smsBtn');
 const snapshotBtn=document.getElementById('snapshotBtn'), mClose=document.getElementById('mClose');
 const fmtPrice=n=>{try{return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n)}catch{return'$'+(n||0)}};
 const fmtMiles=n=>{try{return new Intl.NumberFormat('en-US').format(n)+' mi'}catch{return(n||0)+' mi'}};
@@ -94,7 +93,7 @@ const placeholder=()=>'data:image/svg+xml;charset=utf-8,'+encodeURIComponent("<s
 
 let DATA=[], current=null, idx=0;
 
-// --- Render list ---
+// Render list
 function render(cars){
   list.innerHTML=''; if(!Array.isArray(cars)||!cars.length){ statusEl.textContent='No inventory yet.'; return; }
   statusEl.hidden=true; list.hidden=false;
@@ -115,7 +114,7 @@ function render(cars){
   }
 }
 
-// --- Modal / carousel ---
+// Modal
 function openModal(id){
   current = DATA.find(x=>x.id===id); if(!current) return;
   mTitle.textContent = `${current.year||''} ${current.model||''} ${current.trim||''}`.replace(/\s+/g,' ').trim();
@@ -125,11 +124,12 @@ function openModal(id){
   const imgs = (current.photos && current.photos.length? current.photos : (current.photo?[current.photo]:[]));
   buildCarousel(imgs.length? imgs : [placeholder()]);
   const deep = new URL(location.href); deep.hash = 'car=' + current.id; history.replaceState(null,'',deep);
-  if(PHONE){ smsBtn.style.display='inline-flex'; waBtn.style.display='inline-flex'; } else { smsBtn.style.display='none'; waBtn.style.display='none'; }
+  smsBtn.style.display = PHONE ? 'inline-flex' : 'none'; // SMS only
   modal.classList.add('open'); document.body.style.overflow='hidden';
 }
 function closeModal(){ modal.classList.remove('open'); document.body.style.overflow=''; const u=new URL(location.href); u.hash=''; history.replaceState(null,'',u); }
 
+// Carousel
 function buildCarousel(arr){
   track.innerHTML=''; dots.innerHTML=''; idx=0;
   arr.forEach((src,i)=>{
@@ -144,7 +144,7 @@ function go(i){ const slides=[...track.children]; if(!slides.length) return; idx
 function onScrollSync(){ const slides=[...track.children]; const x=track.scrollLeft, w=track.clientWidth; const i=Math.round(x/w); if(i!==idx){ idx=i; syncDots(); } }
 function syncDots(){ [...dots.children].forEach((d,j)=> d.classList.toggle('active', j===idx)); }
 
-// --- Share / copy / contact ---
+// Share / copy / SMS
 function carLink(id){ const u=new URL(location.href); u.hash='car='+id; return u.href; }
 shareCar.addEventListener('click', async ()=>{
   if(!current) return; const url=carLink(current.id); const title=mTitle.textContent;
@@ -152,28 +152,21 @@ shareCar.addEventListener('click', async ()=>{
   try{ if(navigator.share){ await navigator.share({title, text, url}); } else throw 0; }catch{ await copyText(url); alert('Link copied:\n'+url); }
 });
 copyLink.addEventListener('click', async ()=>{ if(!current) return; const url=carLink(current.id); await copyText(url); alert('Link copied:\n'+url); });
-
 smsBtn.addEventListener('click', ()=>{ if(!current||!PHONE) return; const msg=encodeURIComponent(`Hi! I'm interested in the ${mTitle.textContent} for ${fmtPrice(current.price)}.`); location.href=`sms:${PHONE}?&body=${msg}`; });
-waBtn.addEventListener('click', ()=>{ if(!current||!PHONE) return; const url=encodeURIComponent(carLink(current.id)); const msg=encodeURIComponent(`Hi! I'm interested in the ${mTitle.textContent}. ${url}`); location.href=`https://wa.me/${PHONE.replace(/[^0-9+]/g,'') }?text=${msg}`; });
+async function copyText(t){ if(navigator.clipboard && window.isSecureContext){ return navigator.clipboard.writeText(t) } const el=document.createElement('textarea'); el.value=t; document.body.appendChild(el); el.select(); document.execCommand('copy'); el.remove(); }
 
-async function copyText(t){ if(navigator.clipboard && window.isSecureContext){ return navigator.clipboard.writeText(t) }
-  const el=document.createElement('textarea'); el.value=t; document.body.appendChild(el); el.select(); document.execCommand('copy'); el.remove();
-}
-
-// --- Load + deep-link ---
+// Load + deep-link
 fetch('./inventory.json?ts='+Date.now(), {cache:'no-store'})
   .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
-  .then(d=>{ DATA=Array.isArray(d)?d:[]; render(DATA); const h=new URL(location.href).hash; const m=h.match(/car=([A-Za-z0-9_-]+)/); if(m){ openModal(m[1]); } })
+  .then(d=>{ DATA=Array.isArray(d)?d:[]; render(DATA); const m=new URL(location.href).hash.match(/car=([A-Za-z0-9_-]+)/); if(m){ openModal(m[1]); } })
   .catch(err=>{ statusEl.innerHTML="Viewer error. Check <code>inventory.json</code> exists.<br>"+(err.message||err) });
 
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal() });
-mClose.addEventListener('click', closeModal);
+document.getElementById('mClose').addEventListener('click', closeModal);
 modal.addEventListener('click', e=>{ if(e.target===modal) closeModal() });
 
-// Snapshot for 3-cards-per-screen
-snapshotBtn.addEventListener('click',()=>{ document.body.classList.toggle('snapshot'); });
-
-// Basic snapshot style
+// Snapshot (fits ~3 cards per screen)
+document.getElementById('snapshotBtn').addEventListener('click',()=>{ document.body.classList.toggle('snapshot'); });
 const style=document.createElement('style'); style.textContent=`body.snapshot .photo{aspect-ratio:auto}.snapshot .photo img{height:160px}`; document.head.appendChild(style);
 </script>
 </body></html>
