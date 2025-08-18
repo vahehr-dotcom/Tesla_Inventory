@@ -30,6 +30,7 @@
     <div class="wrap">
       <h1>Inventory Admin</h1>
       <div class="btns">
+        <button id="shareBtn" class="btn">Share link</button>
         <a class="btn" href="./index.html">View site</a>
         <button id="exportBtn">Export inventory.json</button>
         <label class="btn" for="importFile">Import</label><input id="importFile" type="file" accept="application/json" style="display:none"/>
@@ -84,7 +85,38 @@
   </main>
 
   <script>
-    const storeKey='tesla_inventory_v1'; let cars=load(); let editingId=null;
+   <script>
+// …your existing script…
+
+// After your other querySelectors:
+const shareBtn = document.getElementById('shareBtn');
+
+// One-tap share/copy of your viewer page (share.html in same folder)
+shareBtn.addEventListener('click', async () => {
+  const shareUrl = new URL('share.html', location.href).href;
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: 'Current Inventory', url: shareUrl });
+    } else if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(shareUrl);
+      alert('Link copied: ' + shareUrl);
+    } else {
+      const el = document.createElement('input');
+      el.value = shareUrl;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      alert('Link copied: ' + shareUrl);
+    }
+  } catch {
+    alert('Could not open share sheet. Copy this link:\n' + shareUrl);
+  }
+});
+
+// …keep the rest of your script
+</script>
+ const storeKey='tesla_inventory_v1'; let cars=load(); let editingId=null;
     const listEl=document.getElementById('list'), emptyEl=document.getElementById('emptyState');
     const yearEl=document.getElementById('year'), modelEl=document.getElementById('model'), trimEl=document.getElementById('trim'), mileageEl=document.getElementById('mileage'), priceEl=document.getElementById('price');
     const drop=document.getElementById('drop'), photoInput=document.getElementById('photoInput'), photoPreview=document.getElementById('photoPreview'), dropHint=document.getElementById('dropHint');
