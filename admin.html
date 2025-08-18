@@ -13,8 +13,10 @@
     .panel{ background:#fff; border-bottom:1px solid var(--line) } .panel .inner{ max-width:620px; margin:0 auto; padding:12px; display:grid; gap:10px }
     .grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px } .field{ display:flex; flex-direction:column; gap:6px } label{ font-size:12px; color:var(--muted) }
     input,select{ height:40px; border:1px solid var(--line); border-radius:12px; padding:0 10px; font-size:16px }
-    .drop{ position:relative; border:2px dashed #cbd5e1; border-radius:14px; padding:10px; min-height:140px; display:grid; place-items:center; background:#f8fafc }
-    .drop input{ position:absolute; inset:0; opacity:0; cursor:pointer } .drop .hint{ color:var(--muted); font-size:14px } .drop img{ max-width:100%; border-radius:10px; display:none }
+    .drop{ position:relative; border:2px dashed #cbd5e1; border-radius:14px; padding:10px; min-height:160px; display:grid; place-items:center; background:#f8fafc }
+    .drop input[type=file]{ position:absolute; inset:0; opacity:0; cursor:pointer }
+    .drop .hint{ color:var(--muted); font-size:14px; text-align:center }
+    .drop img{ max-width:100%; border-radius:10px; display:none }
     .list{ display:grid; grid-template-columns:1fr; gap:var(--gap); padding:12px } .card{ background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); overflow:hidden; position:relative }
     .photo{ width:100%; aspect-ratio:4/3; background:#e5e7eb } .photo img{ width:100%; height:100%; object-fit:cover; display:block }
     .info{ padding:10px 12px 12px; display:flex; flex-direction:column; gap:6px } .line{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; white-space:nowrap; overflow:hidden }
@@ -48,7 +50,15 @@
       </div>
       <div class="field">
         <label>Photo (4:3 shown; auto-compress)</label>
-        <div class="drop" id="drop"><input type="file" id="photoInput" accept="image/*" /><div class="hint" id="dropHint">Tap to select</div><img id="photoPreview" alt="preview" /></div>
+        <div class="drop" id="drop">
+          <input type="file" id="photoInput" accept="image/*" />
+          <div class="hint" id="dropHint"><b>Click here</b> or use the button below to choose a photo. You can also drag & drop.</div>
+          <img id="photoPreview" alt="preview" />
+        </div>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button id="choosePhotoBtn" class="btn">Choose Photo</button>
+          <span id="photoName" style="align-self:center; color:#475569; font-size:13px;"></span>
+        </div>
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
         <button id="saveBtn" class="primary">Save</button>
@@ -68,7 +78,8 @@
     const storeKey='tesla_inventory_v1'; let cars=load(); let editingId=null;
     const listEl=document.getElementById('list'), emptyEl=document.getElementById('emptyState');
     const yearEl=document.getElementById('year'), modelEl=document.getElementById('model'), trimEl=document.getElementById('trim'), mileageEl=document.getElementById('mileage'), priceEl=document.getElementById('price');
-    const drop=document.getElementById('drop'), photoInput=document.getElementById('photoInput'), photoPreview=document.getElementById('photoPreview'), dropHint=document.getElementById('dropHint');
+    const drop=document.getElementById('drop'), photoInput=document.getElementById('photoInput'), photoPreview=document.getElementById('photoPreview'), dropHint=document.getElementById('dropHint'), photoName=document.getElementById('photoName');
+    const choosePhotoBtn=document.getElementById('choosePhotoBtn');
     const saveBtn=document.getElementById('saveBtn'), newBtn=document.getElementById('newBtn'), deleteBtn=document.getElementById('deleteBtn');
     const exportBtn=document.getElementById('exportBtn'), importFile=document.getElementById('importFile'), clearAllBtn=document.getElementById('clearAllBtn');
 
@@ -97,10 +108,10 @@
       return el; }
 
     function openEdit(id){ const c=cars.find(x=>x.id===id); if(!c) return; editingId=id; yearEl.value=c.year||''; modelEl.value=c.model||'Model 3'; trimEl.value=c.trim||''; mileageEl.value=c.mileage||''; priceEl.value=c.price||'';
-      if(c.photo){ photoPreview.src=c.photo; photoPreview.style.display='block'; dropHint.style.display='none'; } else { photoPreview.src=''; photoPreview.style.display='none'; dropHint.style.display='block'; }
+      if(c.photo){ photoPreview.src=c.photo; photoPreview.style.display='block'; dropHint.style.display='none'; photoName.textContent=''; } else { photoPreview.src=''; photoPreview.style.display='none'; dropHint.style.display='block'; photoName.textContent=''; }
       deleteBtn.style.display='inline-flex'; window.scrollTo({top:0, behavior:'smooth'}); }
 
-    function resetForm(){ editingId=null; yearEl.value=''; modelEl.value='Model 3'; trimEl.value=''; mileageEl.value=''; priceEl.value=''; photoPreview.src=''; photoPreview.style.display='none'; dropHint.style.display='block'; deleteBtn.style.display='none'; }
+    function resetForm(){ editingId=null; yearEl.value=''; modelEl.value='Model 3'; trimEl.value=''; mileageEl.value=''; priceEl.value=''; photoPreview.src=''; photoPreview.style.display='none'; dropHint.style.display='block'; photoName.textContent=''; deleteBtn.style.display='none'; }
 
     async function onSave(){ const y=num(yearEl.value), m=modelEl.value, t=trimEl.value.trim(), mi=num(mileageEl.value), p=num(priceEl.value);
       if(!y){ alert('Enter Year (e.g., 2020)'); yearEl.focus(); return; }
@@ -121,8 +132,16 @@
     clearAllBtn.addEventListener('click', ()=>{ if(!cars.length) return; if(!confirm('Clear ALL cars?')) return; cars=[]; persist(); render(); resetForm(); });
 
     drop.addEventListener('dragover',(e)=>{ e.preventDefault(); drop.style.background='#eef2ff'; }); drop.addEventListener('dragleave',()=>{ drop.style.background='#f8fafc'; });
-    drop.addEventListener('drop', async (e)=>{ e.preventDefault(); drop.style.background='#f8fafc'; const file=e.dataTransfer.files[0]; if(!file) return; const dataUrl=await compress(file,1200,0.86); photoPreview.src=dataUrl; photoPreview.style.display='block'; dropHint.style.display='none'; });
-    photoInput.addEventListener('change', async (e)=>{ const file=e.target.files[0]; if(!file) return; const dataUrl=await compress(file,1200,0.86); photoPreview.src=dataUrl; photoPreview.style.display='block'; dropHint.style.display='none'; });
+    drop.addEventListener('drop', async (e)=>{ e.preventDefault(); drop.style.background='#f8fafc'; const file=e.dataTransfer.files[0]; if(!file) return; await handleFile(file); });
+    choosePhotoBtn.addEventListener('click', ()=> photoInput.click());
+    photoInput.addEventListener('change', async (e)=>{ const file=e.target.files[0]; if(!file) return; await handleFile(file); });
+
+    async function handleFile(file){
+      photoName.textContent = file ? file.name : '';
+      if(!file.type.startsWith('image/')){ alert('Please choose an image file'); return; }
+      const dataUrl=await compress(file,1200,0.86);
+      photoPreview.src=dataUrl; photoPreview.style.display='block'; dropHint.style.display='none';
+    }
 
     async function compress(file,maxW=1200,quality=0.86){ const img=await toImg(file); const scale=Math.min(1,maxW/img.width); const w=Math.round(img.width*scale); const h=Math.round(img.height*scale); const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h; const ctx=canvas.getContext('2d'); ctx.drawImage(img,0,0,w,h); return canvas.toDataURL('image/jpeg', quality); }
     function toImg(file){ return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>{ const img=new Image(); img.onload=()=>res(img); img.onerror=rej; img.src=fr.result; }; fr.onerror=rej; fr.readAsDataURL(file); }); }
