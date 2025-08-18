@@ -14,9 +14,16 @@
     .primary{ background:var(--accent); color:#fff; border-color:transparent }
     .panel{ background:#fff; border-bottom:1px solid var(--line) } .panel .inner{ max-width:720px; margin:0 auto; padding:12px; display:grid; gap:10px }
     .grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px } .field{ display:flex; flex-direction:column; gap:6px } label{ font-size:12px; color:var(--muted) }
-    input,select{ height:40px; border:1px solid var(--line); border-radius:12px; padding:0 10px; font-size:16px }
+    input,select,textarea{ border:1px solid var(--line); border-radius:12px; padding:10px; font-size:16px } input,select{ height:40px; padding:0 10px }
+    textarea{ min-height:90px; resize:vertical }
     .drop{ position:relative; border:2px dashed #cbd5e1; border-radius:14px; padding:10px; min-height:160px; display:grid; place-items:center; background:#f8fafc }
-    .drop input[type=file]{ position:absolute; inset:0; opacity:0; cursor:pointer } .drop .hint{ color:var(--muted); font-size:14px; text-align:center } .drop img{ max-width:100%; border-radius:10px; display:none }
+    .drop input[type=file]{ position:absolute; inset:0; opacity:0; cursor:pointer }
+    .hint{ color:var(--muted); font-size:14px; text-align:center }
+    .thumbs{ display:flex; flex-wrap:wrap; gap:10px; margin-top:8px }
+    .thumb{ position:relative; width:110px; height:82px; border:1px solid var(--line); border-radius:10px; overflow:hidden; background:#e5e7eb; display:flex; align-items:center; justify-content:center }
+    .thumb img{ width:100%; height:100%; object-fit:cover }
+    .t-actions{ position:absolute; bottom:4px; left:4px; right:4px; display:flex; justify-content:space-between; gap:4px }
+    .t-actions button{ height:26px; padding:0 8px; border-radius:8px; background:#fff; border:1px solid var(--line); font-size:12px }
     main{ padding:12px } .list{ display:grid; grid-template-columns:1fr; gap:var(--gap) }
     .card{ background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); overflow:hidden; position:relative }
     .photo{ width:100%; aspect-ratio:4/3; background:#e5e7eb } .photo img{ width:100%; height:100%; object-fit:cover; display:block }
@@ -52,7 +59,7 @@
         <div class="field"><label>File path</label><input id="ghPath" placeholder="inventory.json" value="inventory.json"></div>
         <div class="field" style="grid-column: span 2;"><label>Fine-grained token (Contents: Read & Write)</label><input id="ghToken" type="password" placeholder="Paste token (not saved after tab closes)"></div>
       </div>
-      <p style="color:#475569;font-size:13px;margin:0 0 12px">Your token is used only from this browser to call GitHub. It’s stored in <b>sessionStorage</b> (cleared when you close the tab).</p>
+      <p style="color:#475569;font-size:13px;margin:0 0 12px">Token is used only in this browser (sessionStorage) to call GitHub.</p>
     </div>
   </section>
 
@@ -66,21 +73,25 @@
         <div class="field" style="grid-column: span 2;"><label>Trim</label><input type="text" id="trim" placeholder="Standard Plus" /></div>
         <div class="field"><label>Mileage</label><input type="text" id="mileage" placeholder="66000" /></div>
         <div class="field"><label>Price (USD)</label><input type="text" id="price" placeholder="19000" /></div>
+        <div class="field" style="grid-column: span 2;"><label>Notes</label><textarea id="notes" placeholder="e.g., Clean title, 1 owner, new tires, white/black interior"></textarea></div>
       </div>
+
       <div class="field">
-        <label>Photo (4:3 shown; auto-compress)</label>
-        <div class="drop" id="drop">
-          <input type="file" id="photoInput" accept="image/*" />
-          <div class="hint" id="dropHint"><b>Click here</b> or drag & drop a photo.</div>
-          <img id="photoPreview" alt="preview" />
+        <label>Photos (up to 5) — auto resized & compressed</label>
+        <div class="drop" id="photoDrop">
+          <input id="photoInput" type="file" accept="image/*" multiple />
+          <div class="hint"><b>Click to add</b> or drag & drop multiple photos</div>
         </div>
+        <div id="photoList" class="thumbs"></div>
+        <div class="hint" style="margin-top:6px;">Tip: we auto-resize to ~1000px wide & compress to keep the file small.</div>
       </div>
+
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
         <button id="saveBtn" class="primary">Save</button>
         <button id="newBtn" class="btn">New</button>
         <button id="deleteBtn" class="btn" style="display:none;color:#ef4444;border-color:#fecaca;">Delete</button>
       </div>
-      <p style="color:#475569;font-size:13px;margin:6px 0 0">After updates, use <b>Publish to GitHub</b> to push changes live.</p>
+      <p style="color:#475569;font-size:13px;margin:6px 0 0">After updates, click <b>Publish to GitHub</b> to push changes live.</p>
     </div>
   </div>
 
@@ -94,9 +105,10 @@
   <script>
     // ---------- Storage & helpers ----------
     const storeKey='tesla_inventory_v1'; let cars=load(); let editingId=null;
+    let currentPhotos=[];
     const listEl=document.getElementById('list'), emptyEl=document.getElementById('emptyState');
-    const yearEl=document.getElementById('year'), modelEl=document.getElementById('model'), trimEl=document.getElementById('trim'), mileageEl=document.getElementById('mileage'), priceEl=document.getElementById('price');
-    const drop=document.getElementById('drop'), photoInput=document.getElementById('photoInput'), photoPreview=document.getElementById('photoPreview'), dropHint=document.getElementById('dropHint');
+    const yearEl=document.getElementById('year'), modelEl=document.getElementById('model'), trimEl=document.getElementById('trim'), mileageEl=document.getElementById('mileage'), priceEl=document.getElementById('price'), notesEl=document.getElementById('notes');
+    const photoDrop=document.getElementById('photoDrop'), photoInput=document.getElementById('photoInput'), photoList=document.getElementById('photoList');
     const saveBtn=document.getElementById('saveBtn'), newBtn=document.getElementById('newBtn'), deleteBtn=document.getElementById('deleteBtn');
     const exportBtn=document.getElementById('exportBtn'), importFile=document.getElementById('importFile'), clearAllBtn=document.getElementById('clearAllBtn');
     const publishBtn=document.getElementById('publishBtn'), settingsBtn=document.getElementById('settingsBtn'), settings=document.getElementById('settings');
@@ -110,11 +122,12 @@
     function fmtPrice(n){ try{ return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n);}catch{ return '$'+(n||0);} }
     function fmtMiles(n){ try{ return new Intl.NumberFormat('en-US').format(n)+' mi'; }catch{ return (n||0)+' mi'; } }
     function sortCars(){ cars.sort((a,b)=>(a.addedAt||0)-(b.addedAt||0)||(a.year||0)-(b.year||0)); }
+    function placeholder(){ const s=`<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600' viewBox='0 0 800 600'><rect width='800' height='600' fill='#e5e7eb'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#94a3b8' font-family='system-ui' font-size='28'>Photo</text></svg>`; return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(s); }
 
     // ---------- Render list ----------
     function render(){ sortCars(); listEl.innerHTML=''; if(!cars.length){ emptyEl.style.display='block'; return;} emptyEl.style.display='none'; cars.forEach(c=>listEl.appendChild(card(c))); }
     function card(c){ const el=document.createElement('div'); el.className='card';
-      const ph=document.createElement('div'); ph.className='photo'; const img=document.createElement('img'); img.src=c.photo||placeholder(); img.alt=c.model; ph.appendChild(img);
+      const ph=document.createElement('div'); ph.className='photo'; const img=document.createElement('img'); const first=(c.photos&&c.photos[0])||c.photo||placeholder(); img.src=first; img.alt=c.model; ph.appendChild(img);
       const info=document.createElement('div'); info.className='info';
       const line=document.createElement('div'); line.className='line'; const title=document.createElement('div'); title.className='title'; title.textContent=`${c.year||''} ${c.model||''} ${c.trim||''}`.replace(/\s+/g,' ').trim();
       const miles=document.createElement('div'); miles.className='miles'; miles.textContent=fmtMiles(c.mileage||0);
@@ -128,58 +141,83 @@
       el.addEventListener('click', ()=>openEdit(c.id));
       return el; }
 
-    function openEdit(id){ const c=cars.find(x=>x.id===id); if(!c) return; editingId=id; yearEl.value=c.year||''; modelEl.value=c.model||'Model 3'; trimEl.value=c.trim||''; mileageEl.value=c.mileage||''; priceEl.value=c.price||'';
-      if(c.photo){ photoPreview.src=c.photo; photoPreview.style.display='block'; dropHint.style.display='none'; } else { photoPreview.src=''; photoPreview.style.display='none'; dropHint.style.display='block'; }
+    // ---------- Edit form helpers ----------
+    function openEdit(id){ const c=cars.find(x=>x.id===id); if(!c) return; editingId=id; yearEl.value=c.year||''; modelEl.value=c.model||'Model 3'; trimEl.value=c.trim||''; mileageEl.value=c.mileage||''; priceEl.value=c.price||''; notesEl.value=c.notes||'';
+      currentPhotos = Array.isArray(c.photos) && c.photos.length ? [...c.photos] : (c.photo ? [c.photo] : []);
+      drawThumbs();
       deleteBtn.style.display='inline-flex'; window.scrollTo({top:0, behavior:'smooth'}); }
-    function resetForm(){ editingId=null; yearEl.value=''; modelEl.value='Model 3'; trimEl.value=''; mileageEl.value=''; priceEl.value=''; photoPreview.src=''; photoPreview.style.display='none'; dropHint.style.display='block'; deleteBtn.style.display='none'; }
+    function resetForm(){ editingId=null; yearEl.value=''; modelEl.value='Model 3'; trimEl.value=''; mileageEl.value=''; priceEl.value=''; notesEl.value=''; currentPhotos=[]; drawThumbs(); deleteBtn.style.display='none'; }
 
-    // ---------- Photo handling ----------
-    drop.addEventListener('dragover',(e)=>{ e.preventDefault(); drop.style.background='#eef2ff'; });
-    drop.addEventListener('dragleave',()=>{ drop.style.background='#f8fafc'; });
-    drop.addEventListener('drop', async (e)=>{ e.preventDefault(); drop.style.background='#f8fafc'; const file=e.dataTransfer.files[0]; if(!file) return; await handleFile(file); });
-    photoInput.addEventListener('change', async (e)=>{ const file=e.target.files[0]; if(!file) return; await handleFile(file); });
-    async function handleFile(file){ if(!file.type.startsWith('image/')){ alert('Please choose an image file'); return; } const dataUrl=await compress(file,1200,0.86); photoPreview.src=dataUrl; photoPreview.style.display='block'; dropHint.style.display='none'; }
-    async function compress(file,maxW=1200,quality=0.86){ const img=await toImg(file); const scale=Math.min(1,maxW/img.width); const w=Math.round(img.width*scale); const h=Math.round(img.height*scale); const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h; const ctx=canvas.getContext('2d'); ctx.drawImage(img,0,0,w,h); return canvas.toDataURL('image/jpeg', quality); }
+    // ---------- Thumbs UI ----------
+    function drawThumbs(){ photoList.innerHTML=''; currentPhotos.forEach((src,i)=>{ const box=document.createElement('div'); box.className='thumb'; const im=document.createElement('img'); im.src=src; box.appendChild(im);
+      const bar=document.createElement('div'); bar.className='t-actions';
+      const left=document.createElement('button'); left.textContent='←'; left.onclick=()=>{ if(i>0){ [currentPhotos[i-1],currentPhotos[i]]=[currentPhotos[i],currentPhotos[i-1]]; drawThumbs(); } };
+      const right=document.createElement('button'); right.textContent='→'; right.onclick=()=>{ if(i<currentPhotos.length-1){ [currentPhotos[i+1],currentPhotos[i]]=[currentPhotos[i],currentPhotos[i+1]]; drawThumbs(); } };
+      const del=document.createElement('button'); del.textContent='✕'; del.style.color='#ef4444'; del.onclick=()=>{ currentPhotos.splice(i,1); drawThumbs(); };
+      bar.appendChild(left); bar.appendChild(right); bar.appendChild(del); box.appendChild(bar); photoList.appendChild(box); }); }
+
+    // ---------- Photo handling (auto-resize/compress) ----------
+    photoDrop.addEventListener('dragover', (e)=>{ e.preventDefault(); photoDrop.style.background='#eef2ff'; });
+    photoDrop.addEventListener('dragleave', ()=>{ photoDrop.style.background='#f8fafc'; });
+    photoDrop.addEventListener('drop', async (e)=>{ e.preventDefault(); photoDrop.style.background='#f8fafc'; await handleFiles(e.dataTransfer.files); });
+    photoInput.addEventListener('change', async (e)=>{ await handleFiles(e.target.files); e.target.value=''; });
+
+    async function handleFiles(fileList){
+      const files=[...fileList];
+      if(currentPhotos.length >= 5){ alert('Limit 5 photos'); return; }
+      const room=5-currentPhotos.length;
+      for(const file of files.slice(0, room)){
+        if(!file.type.startsWith('image/')) continue;
+        const dataUrl=await compress(file, 1000, 0.82); // ~1000px wide, good quality
+        currentPhotos.push(dataUrl);
+      }
+      drawThumbs();
+      if(files.length > room) alert('Only first 5 photos were added.');
+    }
+
+    async function compress(file, maxW=1000, quality=0.82){
+      const img=await toImg(file);
+      const scale=Math.min(1, maxW/img.width);
+      const w=Math.round(img.width*scale), h=Math.round(img.height*scale);
+      const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
+      const ctx=canvas.getContext('2d'); ctx.drawImage(img,0,0,w,h);
+      return canvas.toDataURL('image/jpeg', quality);
+    }
     function toImg(file){ return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>{ const img=new Image(); img.onload=()=>res(img); img.onerror=rej; img.src=fr.result; }; fr.onerror=rej; fr.readAsDataURL(file); }); }
-    function placeholder(){ const s=`<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600' viewBox='0 0 800 600'><rect width='800' height='600' fill='#e5e7eb'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#94a3b8' font-family='system-ui' font-size='28'>Photo</text></svg>`; return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(s); }
 
     // ---------- Save/Delete ----------
-    async function onSave(){ const y=num(yearEl.value), m=modelEl.value, t=trimEl.value.trim(), mi=num(mileageEl.value), p=num(priceEl.value);
+    async function onSave(){
+      const y=num(yearEl.value), m=modelEl.value, t=trimEl.value.trim(), mi=num(mileageEl.value), p=num(priceEl.value), n=notesEl.value.trim();
       if(!y){ alert('Enter Year (e.g., 2020)'); yearEl.focus(); return; }
       if(!m){ alert('Choose Model'); modelEl.focus(); return; }
       if(!t){ alert('Enter Trim'); trimEl.focus(); return; }
       if(!mi){ alert('Enter Mileage (numbers only)'); mileageEl.focus(); return; }
       if(!p){ alert('Enter Price (numbers only)'); priceEl.focus(); return; }
-      const photo=photoPreview.src && photoPreview.style.display!=='none' ? photoPreview.src : '';
-      if(!editingId){ cars.push({ id:id(), year:y, model:m, trim:t, mileage:mi, price:p, photo, addedAt:Date.now() }); }
-      else { const i=cars.findIndex(x=>x.id===editingId); if(i!==-1){ const prev=cars[i]; cars[i]={...prev, year:y, model:m, trim:t, mileage:mi, price:p, photo}; } }
-      persist(); render(); resetForm(); }
+      const photos = currentPhotos.slice(0,5);
+      const primary = photos[0] || '';
+      if(!editingId){
+        cars.push({ id:id(), year:y, model:m, trim:t, mileage:mi, price:p, notes:n, photo:primary, photos, addedAt:Date.now() });
+      }else{
+        const i=cars.findIndex(x=>x.id===editingId);
+        if(i!==-1){ const prev=cars[i]; cars[i]={...prev, year:y, model:m, trim:t, mileage:mi, price:p, notes:n, photo:primary, photos}; }
+      }
+      persist(); render(); resetForm();
+    }
     function onDelete(){ if(!editingId) return; if(!confirm('Delete this car?')) return; cars=cars.filter(x=>x.id!==editingId); persist(); render(); resetForm(); }
 
-    // ---------- Export / Import ----------
+    // ---------- Export / Import / Clear ----------
     function exportJSON(){ const blob=new Blob([JSON.stringify(cars,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='inventory.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
-    importFile.addEventListener('change', async (e)=>{ const f=e.target.files[0]; if(!f) return; try{ const t=await f.text(); const data=JSON.parse(t); if(!Array.isArray(data)) throw new Error('Invalid file'); cars=data; persist(); render(); alert('Imported.'); } catch(err){ alert('Import failed.'); } importFile.value=''; });
-
-    // ---------- Clear all ----------
+    importFile.addEventListener('change', async (e)=>{ const f=e.target.files[0]; if(!f) return; try{ const t=await f.text(); const data=JSON.parse(t); if(!Array.isArray(data)) throw new Error('Invalid file'); cars=data; persist(); render(); alert('Imported.'); } catch{ alert('Import failed.'); } importFile.value=''; });
     clearAllBtn.addEventListener('click', ()=>{ if(!cars.length) return; if(!confirm('Clear ALL cars?')) return; cars=[]; persist(); render(); resetForm(); });
 
     // ---------- Share link (always to share.html) ----------
     shareBtn.addEventListener('click', async ()=>{
-      // Absolute link to share.html in same folder:
       const shareUrl = location.origin + location.pathname.replace(/[^/]+$/, '') + 'share.html';
-      try {
-        if (navigator.share) {
-          await navigator.share({ title: 'Current Inventory', url: shareUrl });
-        } else if (navigator.clipboard && window.isSecureContext) {
-          await navigator.clipboard.writeText(shareUrl);
-          alert('Link copied: ' + shareUrl);
-        } else {
-          const el=document.createElement('input'); el.value=shareUrl; document.body.appendChild(el); el.select();
-          document.execCommand('copy'); document.body.removeChild(el); alert('Link copied: ' + shareUrl);
-        }
-      } catch {
-        alert('Could not open share sheet. Copy this link:\n' + shareUrl);
-      }
+      try{
+        if(navigator.share) await navigator.share({ title:'Current Inventory', url:shareUrl });
+        else if(navigator.clipboard && window.isSecureContext){ await navigator.clipboard.writeText(shareUrl); alert('Link copied: '+shareUrl); }
+        else { const el=document.createElement('input'); el.value=shareUrl; document.body.appendChild(el); el.select(); document.execCommand('copy'); el.remove(); alert('Link copied: '+shareUrl); }
+      }catch{ alert('Could not open share sheet. Copy:\n'+shareUrl); }
     });
 
     // ---------- Settings & Publish ----------
@@ -189,14 +227,11 @@
     function saveCfg(v){ localStorage.setItem(cfgKey, JSON.stringify(v)); }
     function saveToken(t){ sessionStorage.setItem('tesla_inv_token', t||''); }
     function loadToken(){ return sessionStorage.getItem('tesla_inv_token')||''; }
-
     (function init(){
       const cfg=loadCfg();
-      ghUser.value = cfg.user||''; ghRepo.value = cfg.repo||''; ghBranch.value = cfg.branch||'main'; ghPath.value = cfg.path||'inventory.json';
-      ghToken.value = loadToken();
-      [ghUser,ghRepo,ghBranch,ghPath].forEach(el=> el.addEventListener('change', ()=>{
-        const c=loadCfg(); c.user=ghUser.value.trim(); c.repo=ghRepo.value.trim(); c.branch=ghBranch.value.trim()||'main'; c.path=ghPath.value.trim()||'inventory.json'; saveCfg(c);
-      }));
+      ghUser.value=cfg.user||''; ghRepo.value=cfg.repo||''; ghBranch.value=cfg.branch||'main'; ghPath.value=cfg.path||'inventory.json';
+      ghToken.value=loadToken();
+      [ghUser,ghRepo,ghBranch,ghPath].forEach(el=> el.addEventListener('change', ()=>{ const c=loadCfg(); c.user=ghUser.value.trim(); c.repo=ghRepo.value.trim(); c.branch=ghBranch.value.trim()||'main'; c.path=ghPath.value.trim()||'inventory.json'; saveCfg(c); }));
       ghToken.addEventListener('change', ()=> saveToken(ghToken.value.trim()));
     })();
 
@@ -205,28 +240,15 @@
         const user=ghUser.value.trim(), repo=ghRepo.value.trim(), branch=(ghBranch.value.trim()||'main'), path=(ghPath.value.trim()||'inventory.json');
         const token=ghToken.value.trim() || loadToken();
         if(!user || !repo || !token){ alert('Fill GitHub Username, Repo, and paste your token in Settings.'); settings.style.display='block'; return; }
-
         const api='https://api.github.com';
         const headers={ 'Authorization':'Bearer '+token, 'Accept':'application/vnd.github+json' };
-
-        // Prepare file content (base64)
         const bodyStr=JSON.stringify(cars, null, 2);
         const content=btoa(unescape(encodeURIComponent(bodyStr)));
-
-        // Get existing file SHA (if any)
         let sha=null;
-        try{
-          const r=await fetch(`${api}/repos/${user}/${repo}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(branch)}`, { headers });
-          if(r.ok){ const j=await r.json(); sha=j.sha||null; }
-        }catch(_){}
-
-        const payload={ message:'Update inventory via Admin', content, branch };
-        if(sha) payload.sha=sha;
-
-        const r2=await fetch(`${api}/repos/${user}/${repo}/contents/${encodeURIComponent(path)}`, {
-          method:'PUT', headers, body: JSON.stringify(payload)
-        });
-        if(!r2.ok){ throw new Error('GitHub API error: '+ await r2.text()); }
+        try{ const r=await fetch(`${api}/repos/${user}/${repo}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(branch)}`, { headers }); if(r.ok){ const j=await r.json(); sha=j.sha||null; } }catch(_){}
+        const payload={ message:'Update inventory via Admin', content, branch }; if(sha) payload.sha=sha;
+        const r2=await fetch(`${api}/repos/${user}/${repo}/contents/${encodeURIComponent(path)}`, { method:'PUT', headers, body: JSON.stringify(payload) });
+        if(!r2.ok) throw new Error('GitHub API error: '+ await r2.text());
         alert('Published to GitHub. Refresh your viewer.');
       }catch(err){ alert(err.message||String(err)); }
     }
