@@ -52,9 +52,9 @@ input,select{height:40px;padding:0 10px}textarea{min-height:90px;resize:vertical
       <div class="field"><label>Repository</label><input id="ghRepo" placeholder="your-repo"></div>
       <div class="field"><label>Branch</label><input id="ghBranch" placeholder="main" value="main"></div>
       <div class="field"><label>File path</label><input id="ghPath" placeholder="inventory.json" value="inventory.json"></div>
-      <div class="field" style="grid-column:span 2"><label>Fine-grained token (Contents: Read & Write)</label><input id="ghToken" type="password" placeholder="Paste token (not saved after tab closes)"></div>
+      <div class="field" style="grid-column:span 2"><label>Fine-grained token (Contents: Read & Write)</label><input id="ghToken" type="password" placeholder="Token (saved on this device)"></div>
     </div>
-    <p class="note">Your token is used only by this browser via GitHub’s API. It lives in <b>sessionStorage</b> and clears when the tab closes.</p>
+    <p class="note">Token is saved in <b>localStorage</b> on this device and reused next time. Clear your browser storage to remove it.</p>
   </div>
 </section>
 
@@ -150,7 +150,7 @@ function renderThumbs(){ thumbRow.innerHTML='';
     const R=document.createElement('div'); R.className='R'; R.textContent='→'; R.onclick=()=>{ if(idx<curPhotos.length-1){ const t=curPhotos[idx+1]; curPhotos[idx+1]=curPhotos[idx]; curPhotos[idx]=t; renderThumbs();}};
     th.appendChild(x); th.appendChild(L); th.appendChild(R); thumbRow.appendChild(th);
   });
-  while(thumbRow.children.length<1) { /* keep area visible even if empty */ const sp=document.createElement('div'); sp.style.height='0px'; thumbRow.appendChild(sp); break; }
+  while(thumbRow.children.length<1) { const sp=document.createElement('div'); sp.style.height='0px'; thumbRow.appendChild(sp); break; }
 }
 
 photosInput.addEventListener('change', async e=>{ const files=[...e.target.files]; await addPhotos(files); e.target.value=''; });
@@ -163,7 +163,7 @@ async function addPhotos(files){ for(const file of files){ if(!file.type.startsW
   } renderThumbs();
 }
 function toImg(file){return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=fr.result};fr.onerror=rej;fr.readAsDataURL(file)})}
-async function compress(file,maxW=1200,quality=0.86){const img=await toImg(file);const scale=Math.min(1,maxW/img.width||1);const w=Math.round((img.width||maxW)*scale),h=Math.round((img.height||maxW*0.75)*scale);const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);return c.toDataURL('image/jpeg',quality)}
+async function compress(file,maxW=1200,quality=0.86){const img=await toImg(file);const scale=Math.min(1,maxW/(img.width||maxW));const w=Math.round((img.width||maxW)*scale),h=Math.round((img.height||maxW*0.75)*scale);const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);return c.toDataURL('image/jpeg',quality)}
 
 async function onSave(){ const y=num(yearEl.value), m=modelEl.value, t=trimEl.value.trim(), mi=num(mileageEl.value), p=num(priceEl.value), n=notesEl.value.trim();
   if(!y){alert('Enter Year');yearEl.focus();return} if(!m){alert('Choose Model');return}
@@ -186,12 +186,15 @@ settingsBtn.addEventListener('click',()=> settings.style.display = settings.styl
 const cfgKey='tesla_inv_cfg';
 function loadCfg(){try{return JSON.parse(localStorage.getItem(cfgKey)||'{}')}catch{return{}}}
 function saveCfg(v){localStorage.setItem(cfgKey, JSON.stringify(v))}
-function saveToken(t){sessionStorage.setItem('tesla_inv_token', t||'')}
-function loadToken(){return sessionStorage.getItem('tesla_inv_token')||''}
+// ---- Token persistence in localStorage (remembers across sessions) ----
+function saveToken(t){ localStorage.setItem('tesla_inv_token', t||''); }
+function loadToken(){ return localStorage.getItem('tesla_inv_token')||''; }
+
 (function init(){ const cfg=loadCfg(); ghUser.value=cfg.user||''; ghRepo.value=cfg.repo||''; ghBranch.value=cfg.branch||'main'; ghPath.value=cfg.path||'inventory.json'; ghToken.value=loadToken();
   [ghUser,ghRepo,ghBranch,ghPath].forEach(el=> el.addEventListener('change',()=>{ const c=loadCfg(); c.user=ghUser.value.trim(); c.repo=ghRepo.value.trim(); c.branch=ghBranch.value.trim()||'main'; c.path=ghPath.value.trim()||'inventory.json'; saveCfg(c); }));
   ghToken.addEventListener('change',()=> saveToken(ghToken.value.trim()));
 })();
+
 async function publish(){ try{
   const user=ghUser.value.trim(), repo=ghRepo.value.trim(), branch=(ghBranch.value.trim()||'main'), path=(ghPath.value.trim()||'inventory.json'); const token=ghToken.value.trim()||loadToken();
   if(!user||!repo||!token){ alert('Fill GitHub Username, Repo, and paste your token in Settings.'); settings.style.display='block'; return }
