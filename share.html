@@ -1,61 +1,179 @@
-<!DOCTYPE html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Current Inventory</title>
 <style>
-  :root{--bg:#f6f7fb;--text:#0f172a;--line:#e2e8f0}
-  *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
-  header{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--line)}
-  .wrap{max-width:620px;margin:0 auto;padding:12px}
-  h1{font-size:18px;margin:6px 0}
-  .list{display:grid;grid-template-columns:1fr;gap:12px;padding:12px}
-  .card{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden}
-  .photo{width:100%;height:220px;background:#e5e7eb}
-  .photo img{width:100%;height:100%;object-fit:cover;display:block}
-  .info{padding:10px 12px 12px}
-  .row{display:flex;justify-content:space-between;gap:10px;white-space:nowrap;overflow:hidden}
-  .title{font-weight:600;overflow:hidden;text-overflow:ellipsis}
-  .muted{color:#475569;font-size:12px}
-  .price{font-weight:700}
+:root{--bg:#f6f7fb;--card:#fff;--text:#0f172a;--muted:#475569;--line:#e2e8f0;--gap:12px}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+header{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line)}
+.wrap{max-width:620px;margin:0 auto;padding:12px}
+h1{font-size:18px;margin:6px 0}.btns{display:flex;gap:8px}
+button{height:36px;padding:0 12px;border:1px solid var(--line);background:#fff;border-radius:12px;cursor:pointer}
+.list{display:grid;grid-template-columns:1fr;gap:var(--gap);padding:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.photo{width:100%;aspect-ratio:4/3;background:#e5e7eb}.photo img{width:100%;height:100%;object-fit:cover;display:block}
+.info{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px}
+.row{display:flex;justify-content:space-between;gap:10px;white-space:nowrap;overflow:hidden}
+.title{font-weight:600;overflow:hidden;text-overflow:ellipsis}
+.muted{color:#475569;font-size:12px}.price{font-weight:700}
+
+/* Modal */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:10px}
+.modal.open{display:flex}
+.sheet{width:100%;max-width:680px;background:#fff;border-radius:16px;overflow:hidden}
+.sheet header{position:sticky;top:0;border-bottom:1px solid var(--line);background:#fff;z-index:2}
+.sheet .hd{display:flex;align-items:center;justify-content:space-between;padding:10px 12px}
+.close{border:1px solid var(--line);background:#fff;border-radius:10px;height:34px;padding:0 10px;cursor:pointer}
+
+/* Carousel */
+.carousel{position:relative;background:#000}
+.track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth}
+.slide{flex:0 0 100%;scroll-snap-align:center;background:#000}
+.slide img{display:block;width:100%;height:320px;object-fit:contain;background:#000}
+.dots{display:flex;gap:6px;justify-content:center;padding:8px;background:#fff;border-top:1px solid var(--line)}
+.dot{width:8px;height:8px;border-radius:50%;background:#cbd5e1;cursor:pointer}.dot.active{background:#0ea5e9}
+.controls{position:absolute;top:50%;left:0;right:0;display:flex;justify-content:space-between;transform:translateY(-50%);pointer-events:none}
+.controls button{pointer-events:auto;border:1px solid var(--line);background:#fff;border-radius:999px;width:34px;height:34px;opacity:.9}
+
+/* Sheet body */
+.body{padding:12px;display:grid;gap:8px}
+.spec{display:flex;justify-content:space-between;gap:10px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
 </style>
-<header><div class="wrap"><h1>Current Inventory</h1></div></header>
+</head><body>
+<header><div class="wrap" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+  <h1>Current Inventory</h1>
+  <div class="btns"><button id="snapshotBtn">Snapshot</button></div>
+</div></header>
+
 <main><div class="wrap">
   <div id="status" class="muted">Loading…</div>
   <div id="list" class="list" hidden></div>
 </div></main>
+
+<!-- Modal -->
+<div id="modal" class="modal" role="dialog" aria-modal="true" aria-label="Vehicle details">
+  <div class="sheet">
+    <header><div class="hd">
+      <div id="mTitle" style="font-weight:600">Car</div>
+      <button class="close" id="mClose">Close</button>
+    </div></header>
+    <div class="carousel">
+      <div class="track" id="track"></div>
+      <div class="controls">
+        <button id="prev">‹</button><button id="next">›</button>
+      </div>
+      <div class="dots" id="dots"></div>
+    </div>
+    <div class="body">
+      <div class="spec"><div id="mMiles" class="muted"></div><div id="mPrice" class="price"></div></div>
+      <div id="mNotes" class="muted" style="white-space:pre-wrap"></div>
+      <div class="actions">
+        <button id="shareCar">Share car</button>
+        <button id="copyLink">Copy link</button>
+        <!-- Contact buttons appear if PHONE is set in config -->
+        <button id="smsBtn" style="display:none">Text seller</button>
+        <button id="waBtn" style="display:none">WhatsApp</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
-(function(){
-  const status=document.getElementById('status'), list=document.getElementById('list');
-  const fmtPrice=n=>{try{return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n)}catch{return'$'+(n||0)}};
-  const fmtMiles=n=>{try{return new Intl.NumberFormat('en-US').format(n)+' mi'}catch{return(n||0)+' mi'}};
-  const placeholder=()=> 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='800' height='600' fill='#e5e7eb'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#94a3b8' font-family='system-ui' font-size='28'>Photo</text></svg>");
+// --- Simple config (set your phone once if you want contact buttons) ---
+const PHONE = ""; // e.g., "+18185551234" (keep quotes). Leave "" to hide contact buttons.
 
-  function render(cars){
-    list.innerHTML='';
-    if(!Array.isArray(cars)||!cars.length){ status.textContent='No inventory yet.'; return; }
-    status.hidden=true; list.hidden=false;
-    cars.sort((a,b)=>(a.addedAt||0)-(b.addedAt||0)||(a.year||0)-(b.year||0));
-    for(const c of cars){
-      const card=document.createElement('div'); card.className='card';
-      const ph=document.createElement('div'); ph.className='photo';
-      const img=document.createElement('img'); img.loading='lazy'; img.decoding='async';
-      img.src=(c.photo||(c.photos&&c.photos[0])||placeholder()); img.alt=(c.model||'Car')+' photo';
-      ph.appendChild(img);
-      const info=document.createElement('div'); info.className='info';
-      const r1=document.createElement('div'); r1.className='row';
-      const t=document.createElement('div'); t.className='title'; t.textContent=`${c.year||''} ${c.model||''} ${c.trim||''}`.replace(/\s+/g,' ').trim();
-      const miles=document.createElement('div'); miles.className='muted'; miles.textContent=fmtMiles(c.mileage||0);
-      r1.appendChild(t); r1.appendChild(miles);
-      const r2=document.createElement('div'); r2.className='row';
-      r2.innerHTML=`<b class="price">${fmtPrice(c.price||0)}</b><span class="muted">${c.addedAt? new Date(c.addedAt).toLocaleDateString():''}</span>`;
-      info.appendChild(r1); info.appendChild(r2);
-      card.appendChild(ph); card.appendChild(info); list.appendChild(card);
-    }
+// --- Utils ---
+const statusEl=document.getElementById('status'), list=document.getElementById('list');
+const modal=document.getElementById('modal'), mTitle=document.getElementById('mTitle'), mMiles=document.getElementById('mMiles'), mPrice=document.getElementById('mPrice'), mNotes=document.getElementById('mNotes');
+const track=document.getElementById('track'), dots=document.getElementById('dots'), prev=document.getElementById('prev'), next=document.getElementById('next');
+const shareCar=document.getElementById('shareCar'), copyLink=document.getElementById('copyLink'), smsBtn=document.getElementById('smsBtn'), waBtn=document.getElementById('waBtn');
+const snapshotBtn=document.getElementById('snapshotBtn'), mClose=document.getElementById('mClose');
+const fmtPrice=n=>{try{return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n)}catch{return'$'+(n||0)}};
+const fmtMiles=n=>{try{return new Intl.NumberFormat('en-US').format(n)+' mi'}catch{return(n||0)+' mi'}};
+const placeholder=()=>'data:image/svg+xml;charset=utf-8,'+encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='800' height='600' fill='#e5e7eb'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#94a3b8' font-family='system-ui' font-size='28'>Photo</text></svg>");
+
+let DATA=[], current=null, idx=0;
+
+// --- Render list ---
+function render(cars){
+  list.innerHTML=''; if(!Array.isArray(cars)||!cars.length){ statusEl.textContent='No inventory yet.'; return; }
+  statusEl.hidden=true; list.hidden=false;
+  cars.sort((a,b)=>(a.addedAt||0)-(b.addedAt||0)||(a.year||0)-(b.year||0));
+  for(const c of cars){
+    const card=document.createElement('div'); card.className='card';
+    const ph=document.createElement('div'); ph.className='photo';
+    const img=document.createElement('img'); img.src=(c.photos&&c.photos[0])||c.photo||placeholder(); img.alt=(c.model||'Car')+' photo'; ph.appendChild(img);
+    const info=document.createElement('div'); info.className='info';
+    const r1=document.createElement('div'); r1.className='row';
+    const t=document.createElement('div'); t.className='title'; t.textContent=`${c.year||''} ${c.model||''} ${c.trim||''}`.replace(/\s+/g,' ').trim();
+    const miles=document.createElement('div'); miles.className='muted'; miles.textContent=fmtMiles(c.mileage||0);
+    r1.appendChild(t); r1.appendChild(miles);
+    const r2=document.createElement('div'); r2.className='row'; r2.innerHTML=`<b class="price">${fmtPrice(c.price||0)}</b><span class="muted">${c.addedAt? new Date(c.addedAt).toLocaleDateString():''}</span>`;
+    info.appendChild(r1); info.appendChild(r2);
+    card.appendChild(ph); card.appendChild(info); list.appendChild(card);
+    card.addEventListener('click', ()=> openModal(c.id));
   }
+}
 
-  fetch('./inventory.json?ts='+Date.now(), {cache:'no-store'})
-    .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
-    .then(render)
-    .catch(err=>{
-      status.innerHTML = "Viewer error. Check <code>inventory.json</code> exists and is valid.<br>"+(err.message||err);
-    });
-})();
+// --- Modal / carousel ---
+function openModal(id){
+  current = DATA.find(x=>x.id===id); if(!current) return;
+  mTitle.textContent = `${current.year||''} ${current.model||''} ${current.trim||''}`.replace(/\s+/g,' ').trim();
+  mMiles.textContent = fmtMiles(current.mileage||0);
+  mPrice.textContent = fmtPrice(current.price||0);
+  mNotes.textContent = current.notes||'';
+  const imgs = (current.photos && current.photos.length? current.photos : (current.photo?[current.photo]:[]));
+  buildCarousel(imgs.length? imgs : [placeholder()]);
+  const deep = new URL(location.href); deep.hash = 'car=' + current.id; history.replaceState(null,'',deep);
+  if(PHONE){ smsBtn.style.display='inline-flex'; waBtn.style.display='inline-flex'; } else { smsBtn.style.display='none'; waBtn.style.display='none'; }
+  modal.classList.add('open'); document.body.style.overflow='hidden';
+}
+function closeModal(){ modal.classList.remove('open'); document.body.style.overflow=''; const u=new URL(location.href); u.hash=''; history.replaceState(null,'',u); }
+
+function buildCarousel(arr){
+  track.innerHTML=''; dots.innerHTML=''; idx=0;
+  arr.forEach((src,i)=>{
+    const sl=document.createElement('div'); sl.className='slide';
+    const im=document.createElement('img'); im.src=src; im.alt='photo '+(i+1); sl.appendChild(im); track.appendChild(sl);
+    const dot=document.createElement('div'); dot.className='dot'+(i===0?' active':''); dot.addEventListener('click',()=>go(i)); dots.appendChild(dot);
+  });
+  prev.onclick=()=>go(idx-1); next.onclick=()=>go(idx+1);
+  track.addEventListener('scroll', onScrollSync, {passive:true});
+}
+function go(i){ const slides=[...track.children]; if(!slides.length) return; idx=(i+slides.length)%slides.length; slides[idx].scrollIntoView({behavior:'smooth'}); syncDots(); }
+function onScrollSync(){ const slides=[...track.children]; const x=track.scrollLeft, w=track.clientWidth; const i=Math.round(x/w); if(i!==idx){ idx=i; syncDots(); } }
+function syncDots(){ [...dots.children].forEach((d,j)=> d.classList.toggle('active', j===idx)); }
+
+// --- Share / copy / contact ---
+function carLink(id){ const u=new URL(location.href); u.hash='car='+id; return u.href; }
+shareCar.addEventListener('click', async ()=>{
+  if(!current) return; const url=carLink(current.id); const title=mTitle.textContent;
+  const text = `${title} — ${fmtPrice(current.price||0)}\n${fmtMiles(current.mileage||0)}\n${url}`;
+  try{ if(navigator.share){ await navigator.share({title, text, url}); } else throw 0; }catch{ await copyText(url); alert('Link copied:\n'+url); }
+});
+copyLink.addEventListener('click', async ()=>{ if(!current) return; const url=carLink(current.id); await copyText(url); alert('Link copied:\n'+url); });
+
+smsBtn.addEventListener('click', ()=>{ if(!current||!PHONE) return; const msg=encodeURIComponent(`Hi! I'm interested in the ${mTitle.textContent} for ${fmtPrice(current.price)}.`); location.href=`sms:${PHONE}?&body=${msg}`; });
+waBtn.addEventListener('click', ()=>{ if(!current||!PHONE) return; const url=encodeURIComponent(carLink(current.id)); const msg=encodeURIComponent(`Hi! I'm interested in the ${mTitle.textContent}. ${url}`); location.href=`https://wa.me/${PHONE.replace(/[^0-9+]/g,'') }?text=${msg}`; });
+
+async function copyText(t){ if(navigator.clipboard && window.isSecureContext){ return navigator.clipboard.writeText(t) }
+  const el=document.createElement('textarea'); el.value=t; document.body.appendChild(el); el.select(); document.execCommand('copy'); el.remove();
+}
+
+// --- Load + deep-link ---
+fetch('./inventory.json?ts='+Date.now(), {cache:'no-store'})
+  .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+  .then(d=>{ DATA=Array.isArray(d)?d:[]; render(DATA); const h=new URL(location.href).hash; const m=h.match(/car=([A-Za-z0-9_-]+)/); if(m){ openModal(m[1]); } })
+  .catch(err=>{ statusEl.innerHTML="Viewer error. Check <code>inventory.json</code> exists.<br>"+(err.message||err) });
+
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal() });
+mClose.addEventListener('click', closeModal);
+modal.addEventListener('click', e=>{ if(e.target===modal) closeModal() });
+
+// Snapshot for 3-cards-per-screen
+snapshotBtn.addEventListener('click',()=>{ document.body.classList.toggle('snapshot'); });
+
+// Basic snapshot style
+const style=document.createElement('style'); style.textContent=`body.snapshot .photo{aspect-ratio:auto}.snapshot .photo img{height:160px}`; document.head.appendChild(style);
 </script>
+</body></html>
