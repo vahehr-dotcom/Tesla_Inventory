@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <title>Inventory Admin (Simple)</title>
+  <title>Inventory Admin (Robust)</title>
   <style>
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:#f6f7fb;color:#0f172a}
     header{position:sticky;top:0;background:#fff;border-bottom:1px solid #e2e8f0}
@@ -30,27 +30,31 @@
   </style>
 </head>
 <body>
-  <header><div class="wrap"><h1>Inventory Admin (Simple)</h1></div></header>
+  <header><div class="wrap"><h1>Inventory Admin</h1></div></header>
   <main class="wrap">
     <div class="panel">
-      <form id="form" onsubmit="return false;">
-        <div class="grid">
-          <div><label>Year</label><input id="year" type="number" required placeholder="2020"></div>
-          <div><label>Model</label><select id="model" required><option value="Model 3">Model 3</option><option value="Model Y">Model Y</option><option value="Model S">Model S</option><option value="Model X">Model X</option><option value="Other">Other</option></select></div>
-          <div style="grid-column:span 2"><label>Trim</label><input id="trim" type="text" required placeholder="Standard Plus"></div>
-          <div><label>Mileage</label><input id="mileage" type="number" required placeholder="66000"></div>
-          <div><label>Price (USD)</label><input id="price" type="number" required placeholder="19000"></div>
+      <div class="grid">
+        <div><label>Year</label><input id="year" type="text" placeholder="2020"></div>
+        <div><label>Model</label>
+          <select id="model">
+            <option value="Model 3">Model 3</option><option value="Model Y">Model Y</option>
+            <option value="Model S">Model S</option><option value="Model X">Model X</option>
+            <option value="Other">Other</option>
+          </select>
         </div>
-        <div style="margin-top:10px">
-          <label>Photo (optional; auto-compress)</label>
-          <div class="drop"><input id="photo" type="file" accept="image/*"><img id="preview" alt="preview"><div id="hint" style="color:#475569;font-size:14px">Tap to select</div></div>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-          <button id="save" class="btn primary">Save</button>
-          <button id="export" type="button" class="btn">Export inventory.json</button>
-          <a class="btn" href="./index.html">View site</a>
-        </div>
-      </form>
+        <div style="grid-column:span 2"><label>Trim</label><input id="trim" type="text" placeholder="Standard Plus"></div>
+        <div><label>Mileage</label><input id="mileage" type="text" placeholder="66000"></div>
+        <div><label>Price (USD)</label><input id="price" type="text" placeholder="19000"></div>
+      </div>
+      <div style="margin-top:10px">
+        <label>Photo (optional; auto-compress)</label>
+        <div class="drop"><input id="photo" type="file" accept="image/*"><img id="preview" alt="preview"><div id="hint" style="color:#475569;font-size:14px">Tap to select</div></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        <button id="save" type="button" class="btn primary">Save</button>
+        <button id="export" type="button" class="btn">Export inventory.json</button>
+        <a class="btn" href="./index.html">View site</a>
+      </div>
       <p style="color:#475569;font-size:13px;margin:8px 0 0">After you add/update cars, click <b>Export inventory.json</b> and upload it to your repo to publish.</p>
     </div>
 
@@ -62,7 +66,7 @@
     const KEY='tesla_inventory_v1';
     let cars = load();
     const list=document.getElementById('list'), empty=document.getElementById('empty');
-    const form=document.getElementById('form'), year=document.getElementById('year'), model=document.getElementById('model'), trim=document.getElementById('trim'), mileage=document.getElementById('mileage'), price=document.getElementById('price');
+    const year=document.getElementById('year'), model=document.getElementById('model'), trim=document.getElementById('trim'), mileage=document.getElementById('mileage'), price=document.getElementById('price');
     const photo=document.getElementById('photo'), preview=document.getElementById('preview'), hint=document.getElementById('hint');
     document.getElementById('save').addEventListener('click', onSave);
     document.getElementById('export').addEventListener('click', onExport);
@@ -73,16 +77,32 @@
     function id(){ return Math.random().toString(36).slice(2,10); }
     function fmtPrice(n){ try { return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n);} catch { return '$'+(n||0);} }
     function fmtMiles(n){ try { return new Intl.NumberFormat('en-US').format(n)+' mi'; } catch { return (n||0)+' mi'; } }
+    function num(v){ const s=String(v).replace(/[^0-9]/g,''); return s?parseInt(s,10):0; }
+
     function render(){ list.innerHTML=''; if(!cars.length){ empty.style.display='block'; return; } empty.style.display='none'; cars.sort((a,b)=>(a.addedAt||0)-(b.addedAt||0)||(a.year||0)-(b.year||0));
       cars.forEach(c=>{ const el=document.createElement('div'); el.className='card'; const ph=document.createElement('div'); ph.className='photo'; const img=document.createElement('img'); img.src=c.photo||placeholder(); img.alt=c.model; ph.appendChild(img);
         const info=document.createElement('div'); info.className='info'; const l1=document.createElement('div'); l1.className='line'; const t=document.createElement('div'); t.className='title'; t.textContent=`${c.year||''} ${c.model||''} ${c.trim||''}`.replace(/\s+/g,' ').trim();
         const m=document.createElement('div'); m.className='miles'; m.textContent=fmtMiles(c.mileage||0); l1.appendChild(t); l1.appendChild(m); const l2=document.createElement('div'); l2.className='line';
         l2.innerHTML=`<b class='price'>${fmtPrice(c.price||0)}</b><span style='color:#475569;font-size:12px'>${c.addedAt? new Date(c.addedAt).toLocaleDateString():''}</span>`; info.appendChild(l1); info.appendChild(l2); el.appendChild(ph); el.appendChild(info); list.appendChild(el); }); }
+
     function placeholder(){ const s=`<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600' viewBox='0 0 800 600'><rect width='800' height='600' fill='#e5e7eb'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#94a3b8' font-family='system-ui' font-size='28'>Photo</text></svg>`; return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(s); }
     async function compress(file,maxW=1200,quality=0.86){ const img=await toImg(file); const scale=Math.min(1,maxW/img.width), w=Math.round(img.width*scale), h=Math.round(img.height*scale); const c=document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); return c.toDataURL('image/jpeg',quality); }
     function toImg(file){ return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=fr.result; }; fr.onerror=rej; fr.readAsDataURL(file); }); }
-    function onSave(){ if(!form.checkValidity()){ form.reportValidity(); return; } const entry={ id:id(), year:parseInt(year.value,10), model:model.value, trim:trim.value.trim(), mileage:parseInt(mileage.value,10), price:parseInt(price.value,10), photo:preview.src||'', addedAt:Date.now() }; cars.push(entry); persist(); render(); form.reset(); preview.style.display='none'; hint.style.display='block'; year.focus(); }
+
+    function onSave(){
+      const y=num(year.value), t=trim.value.trim(), mi=num(mileage.value), p=num(price.value);
+      if(!y){ alert('Enter a Year, e.g., 2020'); year.focus(); return; }
+      if(!model.value){ alert('Choose a Model'); model.focus(); return; }
+      if(!t){ alert('Enter a Trim'); trim.focus(); return; }
+      if(!mi){ alert('Enter Mileage (numbers only)'); mileage.focus(); return; }
+      if(!p){ alert('Enter Price (numbers only)'); price.focus(); return; }
+      const entry={ id:id(), year:y, model:model.value, trim:t, mileage:mi, price:p, photo:preview.src||'', addedAt:Date.now() };
+      cars.push(entry); persist(); render();
+      year.value=''; model.value='Model 3'; trim.value=''; mileage.value=''; price.value=''; preview.src=''; preview.style.display='none'; hint.style.display='block'; year.focus();
+    }
+
     function onExport(){ const blob=new Blob([JSON.stringify(cars,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='inventory.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
+
     render();
   </script>
 </body>
