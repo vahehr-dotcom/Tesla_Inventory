@@ -1,107 +1,137 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <title>Inventory Admin (Robust)</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>Inventory Admin</title>
   <style>
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:#f6f7fb;color:#0f172a}
-    header{position:sticky;top:0;background:#fff;border-bottom:1px solid #e2e8f0}
-    .wrap{max-width:620px;margin:0 auto;padding:12px}
-    h1{font-size:18px;margin:6px 0}
-    .panel{background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 8px 24px rgba(15,23,42,.06);padding:12px}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    label{font-size:12px;color:#475569}
-    input,select{height:40px;border:1px solid #e2e8f0;border-radius:12px;padding:0 10px;font-size:16px}
-    .drop{position:relative;border:2px dashed #cbd5e1;border-radius:14px;padding:10px;min-height:140px;display:grid;place-items:center;background:#f8fafc}
-    .drop input{position:absolute;inset:0;opacity:0;cursor:pointer}
-    .drop img{max-width:100%;border-radius:10px;display:none}
-    .btn{height:36px;padding:0 12px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;cursor:pointer}
-    .primary{background:#0ea5e9;color:#fff;border-color:transparent}
-    .list{display:grid;grid-template-columns:1fr;gap:12px;margin-top:12px}
-    .card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 8px 24px rgba(15,23,42,.06);overflow:hidden}
-    .photo{width:100%;aspect-ratio:4/3;background:#e5e7eb}
-    .photo img{width:100%;height:100%;object-fit:cover;display:block}
-    .info{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px}
-    .line{display:flex;align-items:baseline;justify-content:space-between;gap:10px;white-space:nowrap;overflow:hidden}
-    .title{font-weight:600;overflow:hidden;text-overflow:ellipsis}
-    .miles{color:#475569}
-    .price{font-weight:700}
+    :root { --bg:#f6f7fb; --card:#fff; --text:#0f172a; --muted:#475569; --line:#e2e8f0; --accent:#0ea5e9; --shadow:0 8px 24px rgba(15,23,42,.06); --radius:16px; --gap:12px; }
+    *{ box-sizing:border-box } body{ margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial }
+    header{ position:sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid var(--line) } .wrap{ max-width:620px; margin:0 auto; padding:12px }
+    h1{ font-size:18px; margin:6px 0 } .btns{ display:flex; gap:8px; flex-wrap:wrap } button,.btn{ display:inline-flex; align-items:center; gap:8px; height:36px; padding:0 12px; border:1px solid var(--line); background:#fff; color:var(--text); border-radius:12px; cursor:pointer }
+    .primary{ background:var(--accent); color:#fff; border-color:transparent }
+    .panel{ background:#fff; border-bottom:1px solid var(--line) } .panel .inner{ max-width:620px; margin:0 auto; padding:12px; display:grid; gap:10px }
+    .grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px } .field{ display:flex; flex-direction:column; gap:6px } label{ font-size:12px; color:var(--muted) }
+    input,select{ height:40px; border:1px solid var(--line); border-radius:12px; padding:0 10px; font-size:16px }
+    .drop{ position:relative; border:2px dashed #cbd5e1; border-radius:14px; padding:10px; min-height:140px; display:grid; place-items:center; background:#f8fafc }
+    .drop input{ position:absolute; inset:0; opacity:0; cursor:pointer } .drop .hint{ color:var(--muted); font-size:14px } .drop img{ max-width:100%; border-radius:10px; display:none }
+    .list{ display:grid; grid-template-columns:1fr; gap:var(--gap); padding:12px } .card{ background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); overflow:hidden; position:relative }
+    .photo{ width:100%; aspect-ratio:4/3; background:#e5e7eb } .photo img{ width:100%; height:100%; object-fit:cover; display:block }
+    .info{ padding:10px 12px 12px; display:flex; flex-direction:column; gap:6px } .line{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; white-space:nowrap; overflow:hidden }
+    .title{ font-weight:600; overflow:hidden; text-overflow:ellipsis } .miles{ color:var(--muted) } .price{ font-weight:700 }
+    .actions{ position:absolute; top:8px; right:8px; display:flex; gap:6px } .small{ height:30px; padding:0 10px; border-radius:10px }
   </style>
 </head>
 <body>
-  <header><div class="wrap"><h1>Inventory Admin</h1></div></header>
-  <main class="wrap">
-    <div class="panel">
-      <div class="grid">
-        <div><label>Year</label><input id="year" type="text" placeholder="2020"></div>
-        <div><label>Model</label>
-          <select id="model">
-            <option value="Model 3">Model 3</option><option value="Model Y">Model Y</option>
-            <option value="Model S">Model S</option><option value="Model X">Model X</option>
-            <option value="Other">Other</option>
-          </select>
-        </div>
-        <div style="grid-column:span 2"><label>Trim</label><input id="trim" type="text" placeholder="Standard Plus"></div>
-        <div><label>Mileage</label><input id="mileage" type="text" placeholder="66000"></div>
-        <div><label>Price (USD)</label><input id="price" type="text" placeholder="19000"></div>
-      </div>
-      <div style="margin-top:10px">
-        <label>Photo (optional; auto-compress)</label>
-        <div class="drop"><input id="photo" type="file" accept="image/*"><img id="preview" alt="preview"><div id="hint" style="color:#475569;font-size:14px">Tap to select</div></div>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-        <button id="save" type="button" class="btn primary">Save</button>
-        <button id="export" type="button" class="btn">Export inventory.json</button>
+  <header>
+    <div class="wrap">
+      <h1>Inventory Admin</h1>
+      <div class="btns">
         <a class="btn" href="./index.html">View site</a>
+        <button id="exportBtn">Export inventory.json</button>
+        <label class="btn" for="importFile">Import</label><input id="importFile" type="file" accept="application/json" style="display:none"/>
+        <button id="clearAllBtn" class="btn" style="color:#ef4444;border-color:#fecaca;">Clear all</button>
       </div>
-      <p style="color:#475569;font-size:13px;margin:8px 0 0">After you add/update cars, click <b>Export inventory.json</b> and upload it to your repo to publish.</p>
     </div>
+  </header>
 
+  <!-- Add / Edit form -->
+  <div class="panel">
+    <div class="inner">
+      <h2 style="font-size:16px;margin:0">Add / Edit</h2>
+      <div class="grid">
+        <div class="field"><label>Year</label><input type="text" id="year" placeholder="2020" /></div>
+        <div class="field"><label>Model</label><select id="model"><option>Model 3</option><option>Model Y</option><option>Model S</option><option>Model X</option><option>Other</option></select></div>
+        <div class="field" style="grid-column: span 2;"><label>Trim</label><input type="text" id="trim" placeholder="Standard Plus" /></div>
+        <div class="field"><label>Mileage</label><input type="text" id="mileage" placeholder="66000" /></div>
+        <div class="field"><label>Price (USD)</label><input type="text" id="price" placeholder="19000" /></div>
+      </div>
+      <div class="field">
+        <label>Photo (4:3 shown; auto-compress)</label>
+        <div class="drop" id="drop"><input type="file" id="photoInput" accept="image/*" /><div class="hint" id="dropHint">Tap to select</div><img id="photoPreview" alt="preview" /></div>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button id="saveBtn" class="primary">Save</button>
+        <button id="newBtn" class="btn">New</button>
+        <button id="deleteBtn" class="btn" style="display:none;color:#ef4444;border-color:#fecaca;">Delete</button>
+      </div>
+      <p class="muted" style="margin:6px 0 0;color:#475569">After you add/update cars, click <b>Export inventory.json</b> and upload that file to your repo to publish.</p>
+    </div>
+  </div>
+
+  <main>
     <div id="list" class="list"></div>
-    <p id="empty" style="text-align:center;color:#475569;margin:12px 0">No cars yet.</p>
+    <p id="emptyState" class="muted" style="text-align:center; margin:24px 0; color:#475569">No cars yet.</p>
   </main>
 
   <script>
-    const KEY='tesla_inventory_v1';
-    let cars = load();
-    const list=document.getElementById('list'), empty=document.getElementById('empty');
-    const year=document.getElementById('year'), model=document.getElementById('model'), trim=document.getElementById('trim'), mileage=document.getElementById('mileage'), price=document.getElementById('price');
-    const photo=document.getElementById('photo'), preview=document.getElementById('preview'), hint=document.getElementById('hint');
-    document.getElementById('save').addEventListener('click', onSave);
-    document.getElementById('export').addEventListener('click', onExport);
-    photo.addEventListener('change', async (e)=>{ const f=e.target.files[0]; if(!f) return; const url = await compress(f,1200,0.86); preview.src=url; preview.style.display='block'; hint.style.display='none'; });
+    const storeKey='tesla_inventory_v1'; let cars=load(); let editingId=null;
+    const listEl=document.getElementById('list'), emptyEl=document.getElementById('emptyState');
+    const yearEl=document.getElementById('year'), modelEl=document.getElementById('model'), trimEl=document.getElementById('trim'), mileageEl=document.getElementById('mileage'), priceEl=document.getElementById('price');
+    const drop=document.getElementById('drop'), photoInput=document.getElementById('photoInput'), photoPreview=document.getElementById('photoPreview'), dropHint=document.getElementById('dropHint');
+    const saveBtn=document.getElementById('saveBtn'), newBtn=document.getElementById('newBtn'), deleteBtn=document.getElementById('deleteBtn');
+    const exportBtn=document.getElementById('exportBtn'), importFile=document.getElementById('importFile'), clearAllBtn=document.getElementById('clearAllBtn');
 
-    function load(){ try { return JSON.parse(localStorage.getItem(KEY)||'[]'); } catch { return []; } }
-    function persist(){ localStorage.setItem(KEY, JSON.stringify(cars)); }
+    function load(){ try{ return JSON.parse(localStorage.getItem(storeKey)||'[]'); } catch{ return []; } } function persist(){ localStorage.setItem(storeKey, JSON.stringify(cars)); }
     function id(){ return Math.random().toString(36).slice(2,10); }
-    function fmtPrice(n){ try { return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n);} catch { return '$'+(n||0);} }
-    function fmtMiles(n){ try { return new Intl.NumberFormat('en-US').format(n)+' mi'; } catch { return (n||0)+' mi'; } }
     function num(v){ const s=String(v).replace(/[^0-9]/g,''); return s?parseInt(s,10):0; }
+    function fmtPrice(n){ try{ return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n);}catch{ return '$'+(n||0);} }
+    function fmtMiles(n){ try{ return new Intl.NumberFormat('en-US').format(n)+' mi'; }catch{ return (n||0)+' mi'; } }
+    function sortCars(){ cars.sort((a,b)=>(a.addedAt||0)-(b.addedAt||0)||(a.year||0)-(b.year||0)); }
 
-    function render(){ list.innerHTML=''; if(!cars.length){ empty.style.display='block'; return; } empty.style.display='none'; cars.sort((a,b)=>(a.addedAt||0)-(b.addedAt||0)||(a.year||0)-(b.year||0));
-      cars.forEach(c=>{ const el=document.createElement('div'); el.className='card'; const ph=document.createElement('div'); ph.className='photo'; const img=document.createElement('img'); img.src=c.photo||placeholder(); img.alt=c.model; ph.appendChild(img);
-        const info=document.createElement('div'); info.className='info'; const l1=document.createElement('div'); l1.className='line'; const t=document.createElement('div'); t.className='title'; t.textContent=`${c.year||''} ${c.model||''} ${c.trim||''}`.replace(/\s+/g,' ').trim();
-        const m=document.createElement('div'); m.className='miles'; m.textContent=fmtMiles(c.mileage||0); l1.appendChild(t); l1.appendChild(m); const l2=document.createElement('div'); l2.className='line';
-        l2.innerHTML=`<b class='price'>${fmtPrice(c.price||0)}</b><span style='color:#475569;font-size:12px'>${c.addedAt? new Date(c.addedAt).toLocaleDateString():''}</span>`; info.appendChild(l1); info.appendChild(l2); el.appendChild(ph); el.appendChild(info); list.appendChild(el); }); }
+    function render(){ sortCars(); listEl.innerHTML=''; if(!cars.length){ emptyEl.style.display='block'; return;} emptyEl.style.display='none'; cars.forEach(c=>listEl.appendChild(card(c))); }
 
+    function card(c){ const el=document.createElement('div'); el.className='card';
+      const ph=document.createElement('div'); ph.className='photo'; const img=document.createElement('img'); img.src=c.photo||placeholder(); img.alt=c.model; ph.appendChild(img);
+      const info=document.createElement('div'); info.className='info';
+      const line=document.createElement('div'); line.className='line'; const title=document.createElement('div'); title.className='title'; title.textContent=`${c.year||''} ${c.model||''} ${c.trim||''}`.replace(/\s+/g,' ').trim();
+      const miles=document.createElement('div'); miles.className='miles'; miles.textContent=fmtMiles(c.mileage||0);
+      const line2=document.createElement('div'); line2.className='line'; line2.innerHTML=`<b class='price'>${fmtPrice(c.price||0)}</b><span class='muted' style='font-size:12px;color:#475569'>${c.addedAt? new Date(c.addedAt).toLocaleDateString():''}</span>`;
+      line.appendChild(title); line.appendChild(miles); info.appendChild(line); info.appendChild(line2);
+      const acts=document.createElement('div'); acts.className='actions';
+      const editB=document.createElement('button'); editB.className='small'; editB.textContent='Edit'; editB.addEventListener('click', (e)=>{ e.stopPropagation(); openEdit(c.id); });
+      const delB=document.createElement('button'); delB.className='small'; delB.textContent='Delete'; delB.style.color='#ef4444'; delB.style.borderColor='#fecaca'; delB.addEventListener('click',(e)=>{ e.stopPropagation(); if(confirm('Delete this car?')){ cars=cars.filter(x=>x.id!==c.id); persist(); render(); if(editingId===c.id) resetForm(); } });
+      acts.appendChild(editB); acts.appendChild(delB);
+      el.appendChild(ph); el.appendChild(info); el.appendChild(acts);
+      el.addEventListener('click', ()=>openEdit(c.id));
+      return el; }
+
+    function openEdit(id){ const c=cars.find(x=>x.id===id); if(!c) return; editingId=id; yearEl.value=c.year||''; modelEl.value=c.model||'Model 3'; trimEl.value=c.trim||''; mileageEl.value=c.mileage||''; priceEl.value=c.price||'';
+      if(c.photo){ photoPreview.src=c.photo; photoPreview.style.display='block'; dropHint.style.display='none'; } else { photoPreview.src=''; photoPreview.style.display='none'; dropHint.style.display='block'; }
+      deleteBtn.style.display='inline-flex'; window.scrollTo({top:0, behavior:'smooth'}); }
+
+    function resetForm(){ editingId=null; yearEl.value=''; modelEl.value='Model 3'; trimEl.value=''; mileageEl.value=''; priceEl.value=''; photoPreview.src=''; photoPreview.style.display='none'; dropHint.style.display='block'; deleteBtn.style.display='none'; }
+
+    async function onSave(){ const y=num(yearEl.value), m=modelEl.value, t=trimEl.value.trim(), mi=num(mileageEl.value), p=num(priceEl.value);
+      if(!y){ alert('Enter Year (e.g., 2020)'); yearEl.focus(); return; }
+      if(!m){ alert('Choose Model'); modelEl.focus(); return; }
+      if(!t){ alert('Enter Trim'); trimEl.focus(); return; }
+      if(!mi){ alert('Enter Mileage (numbers only)'); mileageEl.focus(); return; }
+      if(!p){ alert('Enter Price (numbers only)'); priceEl.focus(); return; }
+      const photo=photoPreview.src && photoPreview.style.display!=='none' ? photoPreview.src : '';
+      if(!editingId){ cars.push({ id:id(), year:y, model:m, trim:t, mileage:mi, price:p, photo, addedAt:Date.now() }); }
+      else { const i=cars.findIndex(x=>x.id===editingId); if(i!==-1){ const prev=cars[i]; const prevPrice=prev.price; cars[i]={...prev, year:y, model:m, trim:t, mileage:mi, price:p, photo}; if(typeof prevPrice==='number'&&p<prevPrice) cars[i].prevPrice=prevPrice; } }
+      persist(); render(); resetForm(); }
+
+    function onDelete(){ if(!editingId) return; if(!confirm('Delete this car?')) return; cars=cars.filter(x=>x.id!==editingId); persist(); render(); resetForm(); }
+
+    function exportJSON(){ const blob=new Blob([JSON.stringify(cars,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='inventory.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
+
+    importFile.addEventListener('change', async (e)=>{ const f=e.target.files[0]; if(!f) return; try{ const t=await f.text(); const data=JSON.parse(t); if(!Array.isArray(data)) throw new Error('Invalid file'); cars=data; persist(); render(); alert('Imported.'); } catch(err){ alert('Import failed.'); } importFile.value=''; });
+    clearAllBtn.addEventListener('click', ()=>{ if(!cars.length) return; if(!confirm('Clear ALL cars?')) return; cars=[]; persist(); render(); resetForm(); });
+
+    drop.addEventListener('dragover',(e)=>{ e.preventDefault(); drop.style.background='#eef2ff'; }); drop.addEventListener('dragleave',()=>{ drop.style.background='#f8fafc'; });
+    drop.addEventListener('drop', async (e)=>{ e.preventDefault(); drop.style.background='#f8fafc'; const file=e.dataTransfer.files[0]; if(!file) return; const dataUrl=await compress(file,1200,0.86); photoPreview.src=dataUrl; photoPreview.style.display='block'; dropHint.style.display='none'; });
+    photoInput.addEventListener('change', async (e)=>{ const file=e.target.files[0]; if(!file) return; const dataUrl=await compress(file,1200,0.86); photoPreview.src=dataUrl; photoPreview.style.display='block'; dropHint.style.display='none'; });
+
+    async function compress(file,maxW=1200,quality=0.86){ const img=await toImg(file); const scale=Math.min(1,maxW/img.width); const w=Math.round(img.width*scale); const h=Math.round(img.height*scale); const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h; const ctx=canvas.getContext('2d'); ctx.drawImage(img,0,0,w,h); return canvas.toDataURL('image/jpeg', quality); }
+    function toImg(file){ return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>{ const img=new Image(); img.onload=()=>res(img); img.onerror=rej; img.src=fr.result; }; fr.onerror=rej; fr.readAsDataURL(file); }); }
     function placeholder(){ const s=`<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600' viewBox='0 0 800 600'><rect width='800' height='600' fill='#e5e7eb'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#94a3b8' font-family='system-ui' font-size='28'>Photo</text></svg>`; return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(s); }
-    async function compress(file,maxW=1200,quality=0.86){ const img=await toImg(file); const scale=Math.min(1,maxW/img.width), w=Math.round(img.width*scale), h=Math.round(img.height*scale); const c=document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); return c.toDataURL('image/jpeg',quality); }
-    function toImg(file){ return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=fr.result; }; fr.onerror=rej; fr.readAsDataURL(file); }); }
 
-    function onSave(){
-      const y=num(year.value), t=trim.value.trim(), mi=num(mileage.value), p=num(price.value);
-      if(!y){ alert('Enter a Year, e.g., 2020'); year.focus(); return; }
-      if(!model.value){ alert('Choose a Model'); model.focus(); return; }
-      if(!t){ alert('Enter a Trim'); trim.focus(); return; }
-      if(!mi){ alert('Enter Mileage (numbers only)'); mileage.focus(); return; }
-      if(!p){ alert('Enter Price (numbers only)'); price.focus(); return; }
-      const entry={ id:id(), year:y, model:model.value, trim:t, mileage:mi, price:p, photo:preview.src||'', addedAt:Date.now() };
-      cars.push(entry); persist(); render();
-      year.value=''; model.value='Model 3'; trim.value=''; mileage.value=''; price.value=''; preview.src=''; preview.style.display='none'; hint.style.display='block'; year.focus();
-    }
-
-    function onExport(){ const blob=new Blob([JSON.stringify(cars,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='inventory.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
+    saveBtn.addEventListener('click', onSave);
+    deleteBtn.addEventListener('click', onDelete);
+    exportBtn.addEventListener('click', exportJSON);
+    newBtn.addEventListener('click', resetForm);
 
     render();
   </script>
