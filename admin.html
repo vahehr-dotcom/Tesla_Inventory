@@ -43,13 +43,15 @@ small.muted{color:var(--muted)}
 </style>
 </head>
 <body>
-<header><div class="wrap" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-  <h1>Inventory Admin</h1>
-  <div class="actions">
-    <button id="shareSite">Share link</button>
-    <button id="openBuyer">Open buyer page</button>
+<header>
+  <div class="wrap" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+    <h1>Inventory Admin</h1>
+    <div class="actions">
+      <button id="shareSite">Share link</button>
+      <button id="openBuyer">Open buyer page</button>
+    </div>
   </div>
-</div></header>
+</header>
 
 <main class="wrap">
   <div class="grid">
@@ -282,15 +284,13 @@ byId('publish').onclick = async ()=>{
   }catch(e){ byId('pubMsg').textContent='Publish failed: '+e.message; }
 };
 
-/* -------- Share / Open buyer page (always buyer, never admin) -------- */
+/* -------- Share / Open buyer page (force buyer, absolute URL) -------- */
 (function(){
-  // Always target the buyer page (index.html) with a cache-buster
-  const buyerUrl = new URL('index.html', location.href).href.replace('admin.html','index.html') + '?v=' + Date.now();
+  // Absolute buyer URL to share.html in this repo
+  const buyerUrl = `https://vahehr-dotcom.github.io/Tesla_Inventory/share.html?v=${Date.now()}`;
 
   const openBtn = document.getElementById('openBuyer');
-  if (openBtn) {
-    openBtn.onclick = () => window.open(buyerUrl, '_blank', 'noopener');
-  }
+  if (openBtn) openBtn.onclick = () => window.open(buyerUrl, '_blank', 'noopener');
 
   const shareBtn = document.getElementById('shareSite');
   if (shareBtn) {
