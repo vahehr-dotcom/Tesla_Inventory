@@ -10,7 +10,7 @@
 <meta property="og:title" content="E.V. EXCHANGE BROKERS — Used Tesla Inventory" />
 <meta property="og:description" content="Tap to view today’s cars — photos, price, mileage." />
 <meta property="og:image" content="https://vahehr-dotcom.github.io/Tesla_Inventory/og-card-red-diagonal-lights-v2.png?v=1" />
-<meta property="og:url" content="https://vahehr-dotcom.github.io/Tesla_Inventory/" />
+<meta property="og:url" content="https://vahehr-dotcom.github.io/Tesla_Inventory/share.html" />
 <meta name="twitter:card" content="summary_large_image" />
 
 <style>
@@ -61,7 +61,7 @@ button{height:36px;padding:0 12px;border:1px solid var(--line);background:#fff;b
 .actions{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center}
 .actions .cta{grid-column:1 / -1;height:48px;border-radius:12px;background:#0ea5e9;color:#fff;border:1px solid transparent;font-weight:700;font-size:16px}
 
-/* Snapshot: fit ~3 cards per screen */
+/* Snapshot: fit ~3 cards per phone screen */
 body.snapshot .photo{aspect-ratio:auto}
 body.snapshot .photo img{height:160px}
 </style>
@@ -73,7 +73,10 @@ body.snapshot .photo img{height:160px}
       <img src="./logo.png" alt="logo" onerror="this.remove()">
       <b>E.V. Exchange Brokers</b>
     </div>
-    <div class="btns"><button id="snapshotBtn">Snapshot</button></div>
+    <div class="btns">
+      <a href="./sell.html"><button>Sell your Tesla</button></a>
+      <button id="snapshotBtn">Snapshot</button>
+    </div>
   </div>
 </header>
 
@@ -109,7 +112,7 @@ body.snapshot .photo img{height:160px}
 </div>
 
 <script>
-const PHONE = "+14244256211"; // used by Contact button
+const PHONE = "+14244256211"; // SMS number for “Contact us”
 
 const statusEl=document.getElementById('status'), list=document.getElementById('list');
 const modal=document.getElementById('modal'), mTitle=document.getElementById('mTitle'), mMiles=document.getElementById('mMiles'), mPrice=document.getElementById('mPrice'), mNotes=document.getElementById('mNotes');
@@ -201,6 +204,7 @@ document.getElementById('smsBtn').addEventListener('click', ()=>{
 async function copyText(t){ if(navigator.clipboard && window.isSecureContext){ return navigator.clipboard.writeText(t) }
   const el=document.createElement('textarea'); el.value=t; document.body.appendChild(el); el.select(); document.execCommand('copy'); el.remove(); }
 
+/* Load inventory, auto-assign IDs if missing */
 fetch('./inventory.json?ts='+Date.now(), {cache:'no-store'})
   .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
   .then(d=>{
