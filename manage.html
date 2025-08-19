@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Inventory Admin</title>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--text:#0f172a;--muted:#475569;--line:#e2e8f0;--accent:#0ea5e9;--danger:#ef4444}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+header{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line)}
+.wrap{max-width:860px;margin:0 auto;padding:12px}
+h1{font-size:20px;margin:6px 0}
+.grid{display:grid;grid-template-columns:1fr;gap:12px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.card .hd{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line);background:#fafafa}
+.card .bd{padding:12px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+label{font-size:12px;color:var(--muted)}
+input,select,textarea,button{font:inherit}
+input,select,textarea{width:100%;padding:8px;border:1px solid var(--line);border-radius:10px;background:#fff}
+textarea{min-height:72px;resize:vertical}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+button{height:36px;padding:0 12px;border:1px solid var(--line);background:#fff;border-radius:12px;cursor:pointer}
+button.primary{background:var(--accent);color:#fff;border-color:transparent}
+button.warn{border-color:var(--danger);color:var(--danger)}
+small.muted{color:var(--muted)}
+.list{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.item{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+.item .ph{aspect-ratio:4/3;background:#e5e7eb}
+.item img{width:100%;height:100%;object-fit:cover;display:block}
+.item .info{padding:10px 12px}
+.item .top{display:flex;justify-content:space-between;gap:10px}
+.item .title{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .muted{color:#475569;font-size:12px}
+.item .price{font-weight:700}
+.item .btns{display:flex;gap:8px;margin-top:8px}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:12px;text-align:center;color:var(--muted)}
+.drop.drag{border-color:var(--accent);color:#0ea5e9}
+.preview{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.preview img{width:80px;height:60px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+</style>
+</head>
+<body>
+<header><div class="wrap" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+  <h1>Inventory Admin</h1>
+  <div class="actions">
+    <button id="shareSite">Share link</button>
+    <a href="./index.html" target="_blank"><button>Open buyer page</button></a>
+  </div>
+</div></header>
+
+<main class="wrap">
+  <div class="grid">
+
+    <!-- SETTINGS -->
+    <div class="card">
+      <div class="hd"><b>GitHub Settings</b><small class="muted">Stored locally only</small></div>
+      <div class="bd row3">
+        <div><label>Username</label><input id="u" placeholder="vahehr-dotcom" value="vahehr-dotcom"></div>
+        <div><label>Repo</label><input id="r" placeholder="Tesla_Inventory" value="Tesla_Inventory"></div>
+        <div><label>Branch</label><input id="b" value="main"></div>
+        <div style="grid-column:1 / -1"><label>Personal access token</label><input id="t" type="password" placeholder="ghp_..." autocomplete="off"></div>
+        <div class="actions" style="grid-column:1 / -1">
+          <button id="saveCfg" class="primary">Save settings</button>
+          <button id="clearCfg" class="warn">Forget settings</button>
+          <div id="cfgMsg" class="muted"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADD / EDIT -->
+    <div class="card">
+      <div class="hd"><b>Add / Edit Car</b><small class="muted">Year, Model, Trim, Mileage, Price required</small></div>
+      <div class="bd">
+        <div class="row">
+          <div><label>Year</label><input id="year" type="number" min="2008" max="2100" required></div>
+          <div><label>Model</label>
+            <select id="model">
+              <option value="">Select…</option>
+              <option>Model 3</option><option>Model Y</option><option>Model S</option><option>Model X</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div><label>Trim</label><input id="trim" placeholder="Standard Plus / Long Range / Plaid…" required></div>
+          <div><label>Mileage</label><input id="miles" type="number" min="0" step="1000" placeholder="66000" required></div>
+        </div>
+        <div class="row">
+          <div><label>Price (USD)</label><input id="price" type="number" min="0" step="100" placeholder="19000" required></div>
+          <div><label>Date (auto)</label><input id="added" type="date"></div>
+        </div>
+        <div><label>Notes</label><textarea id="notes" placeholder="Color, condition, options, FSD, warranty, one-owner…"></textarea></div>
+
+        <div class="drop" id="drop">Drag & drop photos here or
+          <label style="color:#0ea5e9;cursor:pointer"> click to select
+            <input id="photos" type="file" accept="image/*" multiple style="display:none">
+          </label>
+          <div><small class="muted">We auto-resize to max 1400px (quality ~80%).</small></div>
+          <div id="prev" class="preview"></div>
+        </div>
+
+        <div class="actions" style="margin-top:10px">
+          <button id="saveCar" class="primary">Save car</button>
+          <button id="resetForm" type="button">Reset form</button>
+          <div id="formMsg" class="muted"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INVENTORY -->
+    <div class="card">
+      <div class="hd"><b>Inventory</b><small class="muted" id="count"></small></div>
+      <div class="bd">
+        <div class="actions" style="margin-bottom:8px">
+          <button id="loadRemote">Load from GitHub</button>
+          <button id="downloadLocal">Download JSON</button>
+          <button id="clearLocal" class="warn">Clear local list</button>
+          <button id="publish" class="primary">Publish to GitHub</button>
+          <div id="pubMsg" class="muted"></div>
+        </div>
+        <div id="list" class="list"></div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+/* -------- Helpers -------- */
+const byId = id=>document.getElementById(id);
+const fmtPrice = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(+n||0);
+const fmtMiles = n => new Intl.NumberFormat('en-US').format(+n||0)+' mi';
+const todayISO = () => new Date().toISOString().slice(0,10);
+const uid = () => Math.random().toString(36).slice(2,10);
+const placeholder = ()=>'data:image/svg+xml;charset=utf-8,'+encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='800' height='600' fill='#e5e7eb'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#94a3b8' font-family='system-ui' font-size='28'>Photo</text></svg>");
+
+/* -------- Config (local only) -------- */
+const cfg = {
+  get user(){return localStorage.getItem('gh_user')||'vahehr-dotcom'},
+  set user(v){localStorage.setItem('gh_user',v||'')},
+  get repo(){return localStorage.getItem('gh_repo')||'Tesla_Inventory'},
+  set repo(v){localStorage.setItem('gh_repo',v||'')},
+  get branch(){return localStorage.getItem('gh_branch')||'main'},
+  set branch(v){localStorage.setItem('gh_branch',v||'main')},
+  get token(){return localStorage.getItem('gh_token')||''},
+  set token(v){localStorage.setItem('gh_token',v||'')}
+};
+function loadCfgUI(){byId('u').value=cfg.user;byId('r').value=cfg.repo;byId('b').value=cfg.branch;byId('t').value=cfg.token}
+loadCfgUI();
+byId('saveCfg').onclick=()=>{cfg.user=byId('u').value.trim();cfg.repo=byId('r').value.trim();cfg.branch=byId('b').value.trim()||'main';cfg.token=byId('t').value.trim();byId('cfgMsg').textContent='Saved.'};
+byId('clearCfg').onclick=()=>{['gh_user','gh_repo','gh_branch','gh_token'].forEach(k=>localStorage.removeItem(k));loadCfgUI();byId('cfgMsg').textContent='Cleared.'};
+
+/* -------- Local inventory (quota-safe) -------- */
+let __MEM = []; // fallback memory copy if localStorage fills up
+function getInv(){
+  try{ const s = localStorage.getItem('inventory'); return s ? JSON.parse(s) : (__MEM||[]); }
+  catch{ return __MEM||[]; }
+}
+function setInv(arr){
+  __MEM = Array.isArray(arr)?arr:[];
+  try{ localStorage.setItem('inventory', JSON.stringify(__MEM)); }
+  catch(e){ console.warn('localStorage full; using in-memory store only', e); }
+  renderList();
+}
+
+/* -------- Render list -------- */
+function renderList(){
+  const inv = getInv();
+  byId('count').textContent = inv.length ? `${inv.length} car${inv.length>1?'s':''}` : 'Empty';
+  const list = byId('list'); list.innerHTML='';
+  inv.sort((a,b)=>(a.addedAt||0)-(b.addedAt||0)||(a.year||0)-(b.year||0)); // oldest first
+  inv.forEach(car=>{
+    const el = document.createElement('div'); el.className='item';
+    el.innerHTML = `
+      <div class="ph"><img src="${(car.photos&&car.photos[0])||car.photo||placeholder()}" alt=""></div>
+      <div class="info">
+        <div class="top"><div class="title">${car.year||''} ${car.model||''} ${car.trim||''}</div><div class="muted">${fmtMiles(car.mileage||0)}</div></div>
+        <div class="top"><div class="price">${fmtPrice(car.price||0)}</div><div class="muted">${car.addedAt? new Date(car.addedAt).toLocaleDateString():''}</div></div>
+        <div class="btns"><button data-edit="${car.id||''}">Edit</button><button class="warn" data-del="${car.id||''}">Delete</button></div>
+      </div>`;
+    list.appendChild(el);
+  });
+  list.querySelectorAll('[data-del]').forEach(btn=>btn.onclick=()=>{const id=btn.getAttribute('data-del'); setInv(getInv().filter(x=>x.id!==id));});
+  list.querySelectorAll('[data-edit]').forEach(btn=>btn.onclick=()=>{const id=btn.getAttribute('data-edit'); const car=getInv().find(x=>x.id===id); if(!car) return;
+    byId('year').value=car.year||''; byId('model').value=car.model||''; byId('trim').value=car.trim||''; byId('miles').value=car.mileage||''; byId('price').value=car.price||'';
+    byId('added').value=car.addedAt? new Date(car.addedAt).toISOString().slice(0,10) : ''; byId('notes').value=car.notes||'';
+    currentPhotos=[...(car.photos||[])]; drawPreviews(); editingId=car.id; window.scrollTo({top:0,behavior:'smooth'});
+  });
+}
+renderList();
+
+/* -------- Photos (multi + compression) -------- */
+const fileInput=byId('photos'), drop=byId('drop');
+let currentPhotos=[];
+function drawPreviews(){ const prev=byId('prev'); prev.innerHTML=''; currentPhotos.forEach(src=>{const im=document.createElement('img'); im.src=src; prev.appendChild(im);}); }
+drop.addEventListener('dragover',e=>{e.preventDefault(); drop.classList.add('drag');});
+drop.addEventListener('dragleave',()=>drop.classList.remove('drag'));
+drop.addEventListener('drop',e=>{e.preventDefault(); drop.classList.remove('drag'); handleFiles(e.dataTransfer.files);});
+drop.addEventListener('click',()=>fileInput.click());
+fileInput.onchange=()=>handleFiles(fileInput.files);
+
+function handleFiles(files){ if(!files||!files.length) return; [...files].forEach(f=>compressImageFile(f).then(url=>{ currentPhotos.push(url); drawPreviews(); })); }
+function compressImageFile(file,maxDim=1400,quality=0.8){
+  return new Promise((res,rej)=>{
+    const reader=new FileReader();
+    reader.onload=()=>{
+      const img=new Image();
+      img.onload=()=>{
+        const c=document.createElement('canvas'), ctx=c.getContext('2d');
+        let w=img.width,h=img.height;
+        if(w>h && w>maxDim){ h=Math.round(h*maxDim/w); w=maxDim; }
+        else if(h>=w && h>maxDim){ w=Math.round(w*maxDim/h); h=maxDim; }
+        c.width=w; c.height=h; ctx.drawImage(img,0,0,w,h);
+        res(c.toDataURL('image/jpeg',quality));
+      };
+      img.onerror=rej; img.src=reader.result;
+    };
+    reader.onerror=rej; reader.readAsDataURL(file);
+  });
+}
+
+/* -------- Form actions -------- */
+let editingId=null;
+byId('added').value = todayISO();
+
+byId('resetForm').onclick = ()=>{
+  editingId=null; currentPhotos=[]; drawPreviews();
+  ['year','model','trim','miles','price','notes'].forEach(id=>byId(id).value='');
+  byId('added').value = todayISO();
+};
+
+byId('saveCar').onclick = ()=>{
+  const year=+byId('year').value, model=byId('model').value.trim(), trim=byId('trim').value.trim(), mileage=+byId('miles').value, price=+byId('price').value;
+  if(!year||!model||!trim||!mileage||!price){ byId('formMsg').textContent='Year, Model, Trim, Mileage, and Price are required.'; return; }
+  const notes=byId('notes').value.trim();
+  const addedAt = byId('added').value ? new Date(byId('added').value+'T12:00:00').getTime() : Date.now();
+  const car = { id:editingId||uid(), year, model, trim, mileage, price, notes, addedAt, photos: currentPhotos.slice() };
+  const inv=getInv(); const i=inv.findIndex(x=>x.id===car.id);
+  if(i>=0) inv[i]=car; else inv.push(car);
+  setInv(inv); byId('formMsg').textContent='Saved.'; byId('resetForm').click();
+};
+
+/* -------- Download / Clear / Load remote -------- */
+byId('downloadLocal').onclick=()=>{ const blob=new Blob([JSON.stringify(getInv(),null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='inventory.json'; a.click(); URL.revokeObjectURL(a.href); };
+byId('clearLocal').onclick=()=>{ if(confirm('Clear local inventory?')) setInv([]); };
+
+byId('loadRemote').onclick=async()=>{
+  try{
+    const r = await fetch('./inventory.json?ts='+Date.now(), {cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const data = await r.json();
+    if(!Array.isArray(data)) throw new Error('Remote file is not an array.');
+    // Auto-add IDs if missing
+    data.forEach(c=>{ if(!c.id){ c.id = uid(); } });
+    setInv(data);
+    alert('Loaded from GitHub ('+data.length+' cars). Missing IDs were added — click Publish to save.');
+  }catch(e){
+    alert('Could not load from GitHub: '+e.message);
+  }
+};
+
+/* -------- Publish to GitHub -------- */
+byId('publish').onclick = async ()=>{
+  const user=byId('u').value.trim()||'vahehr-dotcom', repo=byId('r').value.trim()||'Tesla_Inventory', branch=byId('b').value.trim()||'main', token=byId('t').value.trim();
+  if(!user||!repo||!token){ byId('pubMsg').textContent='Fill username, repo, and token.'; return; }
+  const content = JSON.stringify(getInv(), null, 2);
+  const enc = btoa(unescape(encodeURIComponent(content)));
+  const api = `https://api.github.com/repos/${user}/${repo}/contents/inventory.json`;
+  byId('pubMsg').textContent='Publishing…';
+  let sha=null;
+  try{
+    const cur=await fetch(api+`?ref=${encodeURIComponent(branch)}`,{headers:{Authorization:`token ${token}`,Accept:'application/vnd.github+json'}});
+    if(cur.status===200){ const j=await cur.json(); sha=j.sha; }
+  }catch(e){}
+  try{
+    const r=await fetch(api,{method:'PUT',headers:{Authorization:`token ${token}`,Accept:'application/vnd.github+json'},
+      body:JSON.stringify({message:`Update inventory (${new Date().toISOString()})`,content:enc,branch,sha})});
+    if(!r.ok){ const tx=await r.text(); throw new Error(tx); }
+    byId('pubMsg').textContent='Published. GitHub Pages will refresh shortly.';
+  }catch(e){ byId('pubMsg').textContent='Publish failed: '+e.message; }
+};
+
+/* -------- Share link (buyer URL only) -------- */
+document.getElementById('shareSite').onclick = async ()=>{
+  const user = (localStorage.getItem('gh_user') || 'vahehr-dotcom');
+  const repo = (localStorage.getItem('gh_repo') || 'Tesla_Inventory');
+  const shareUrl = `https://${user}.github.io/${repo}/`; // root opens buyer page
+  try{
+    if(navigator.share){ await navigator.share({ title:'Current Inventory', url: shareUrl }); }
+    else{ await (navigator.clipboard?.writeText(shareUrl) || Promise.reject()); alert('Link copied:\n'+shareUrl); }
+  }catch{
+    const ta=document.createElement('textarea'); ta.value=shareUrl; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); ta.remove(); alert('Link copied:\n'+shareUrl);
+  }
+};
+</script>
+</body>
+</html>
