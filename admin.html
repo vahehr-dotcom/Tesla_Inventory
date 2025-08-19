@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Inventory Admin</title>
 <style>
-:root{--bg:#f6f7fb;--card:#fff;--text:#0f172a;--muted:#475569;--line:#e2e8f0;--accent:#0ea5e9}
+:root{--bg:#f6f7fb;--card:#fff;--text:#0f172a;--muted:#475569;--line:#e2e8f0;--accent:#0ea5e9;--danger:#ef4444}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
 header{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line)}
 .wrap{max-width:860px;margin:0 auto;padding:12px}
-h1{font-size:18px;margin:6px 0}
+h1{font-size:20px;margin:6px 0}
 .grid{display:grid;grid-template-columns:1fr;gap:12px}
 .card{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden}
 .card .hd{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line);background:#fafafa}
@@ -24,7 +24,7 @@ textarea{min-height:72px;resize:vertical}
 .actions{display:flex;flex-wrap:wrap;gap:8px}
 button{height:36px;padding:0 12px;border:1px solid var(--line);background:#fff;border-radius:12px;cursor:pointer}
 button.primary{background:var(--accent);color:#fff;border-color:transparent}
-button.warn{border-color:#ef4444;color:#ef4444}
+button.warn{border-color:var(--danger);color:var(--danger)}
 small.muted{color:var(--muted)}
 .list{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .item{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
@@ -58,8 +58,8 @@ small.muted{color:var(--muted)}
     <div class="card">
       <div class="hd"><b>GitHub Settings</b><small class="muted">Stored locally only</small></div>
       <div class="bd row3">
-        <div><label>Username</label><input id="u" placeholder="vahehr-dotcom"></div>
-        <div><label>Repo</label><input id="r" placeholder="Tesla_Inventory"></div>
+        <div><label>Username</label><input id="u" placeholder="vahehr-dotcom" value="vahehr-dotcom"></div>
+        <div><label>Repo</label><input id="r" placeholder="Tesla_Inventory" value="Tesla_Inventory"></div>
         <div><label>Branch</label><input id="b" value="main"></div>
         <div style="grid-column:1 / -1"><label>Personal access token</label><input id="t" type="password" placeholder="ghp_..." autocomplete="off"></div>
         <div class="actions" style="grid-column:1 / -1">
@@ -84,7 +84,7 @@ small.muted{color:var(--muted)}
           </div>
         </div>
         <div class="row">
-          <div><label>Trim</label><input id="trim" placeholder="Standard Plus / Long Range / Plaid …" required></div>
+          <div><label>Trim</label><input id="trim" placeholder="Standard Plus / Long Range / Plaid…" required></div>
           <div><label>Mileage</label><input id="miles" type="number" min="0" step="1000" placeholder="66000" required></div>
         </div>
         <div class="row">
@@ -97,7 +97,7 @@ small.muted{color:var(--muted)}
           <label style="color:#0ea5e9;cursor:pointer"> click to select
             <input id="photos" type="file" accept="image/*" multiple style="display:none">
           </label>
-          <div><small class="muted">We auto-resize to max 1600px (quality ~80%).</small></div>
+          <div><small class="muted">We auto-resize to max 1400px (quality ~80%).</small></div>
           <div id="prev" class="preview"></div>
         </div>
 
@@ -128,7 +128,7 @@ small.muted{color:var(--muted)}
 </main>
 
 <script>
-/* ========== Helpers ========== */
+/* -------- Helpers -------- */
 const $ = s=>document.querySelector(s);
 const byId = id=>document.getElementById(id);
 const fmtPrice = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(+n||0);
@@ -137,11 +137,11 @@ const todayISO = () => new Date().toISOString().slice(0,10);
 const uid = () => Math.random().toString(36).slice(2,10);
 const placeholder = ()=>'data:image/svg+xml;charset=utf-8,'+encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='800' height='600' fill='#e5e7eb'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#94a3b8' font-family='system-ui' font-size='28'>Photo</text></svg>");
 
-/* ========== Config (local only) ========== */
+/* -------- Config (local only) -------- */
 const cfg = {
-  get user(){return localStorage.getItem('gh_user')||''},
+  get user(){return localStorage.getItem('gh_user')||'vahehr-dotcom'},
   set user(v){localStorage.setItem('gh_user',v||'')},
-  get repo(){return localStorage.getItem('gh_repo')||''},
+  get repo(){return localStorage.getItem('gh_repo')||'Tesla_Inventory'},
   set repo(v){localStorage.setItem('gh_repo',v||'')},
   get branch(){return localStorage.getItem('gh_branch')||'main'},
   set branch(v){localStorage.setItem('gh_branch',v||'main')},
@@ -153,22 +153,20 @@ loadCfgUI();
 byId('saveCfg').onclick=()=>{cfg.user=byId('u').value.trim();cfg.repo=byId('r').value.trim();cfg.branch=byId('b').value.trim()||'main';cfg.token=byId('t').value.trim();byId('cfgMsg').textContent='Saved.'};
 byId('clearCfg').onclick=()=>{['gh_user','gh_repo','gh_branch','gh_token'].forEach(k=>localStorage.removeItem(k));loadCfgUI();byId('cfgMsg').textContent='Cleared.'};
 
-/* ========== Local inventory (quota-safe) ========== */
-let __MEM = []; // memory fallback when localStorage is full
+/* -------- Local inventory (quota-safe) -------- */
+let __MEM = []; // fallback memory copy if localStorage fills up
 function getInv(){
-  try{
-    const s = localStorage.getItem('inventory');
-    return s ? JSON.parse(s) : (__MEM||[]);
-  }catch(e){ return __MEM||[]; }
+  try{ const s = localStorage.getItem('inventory'); return s ? JSON.parse(s) : (__MEM||[]); }
+  catch{ return __MEM||[]; }
 }
 function setInv(arr){
   __MEM = Array.isArray(arr)?arr:[];
   try{ localStorage.setItem('inventory', JSON.stringify(__MEM)); }
-  catch(e){ console.warn('localStorage full; using memory only', e); }
+  catch(e){ console.warn('localStorage full; using in-memory store only', e); }
   renderList();
 }
 
-/* ========== Render list ========== */
+/* -------- Render list -------- */
 function renderList(){
   const inv = getInv();
   byId('count').textContent = inv.length ? `${inv.length} car${inv.length>1?'s':''}` : 'Empty';
@@ -194,7 +192,7 @@ function renderList(){
 }
 renderList();
 
-/* ========== Photos (multi + compression) ========== */
+/* -------- Photos (multi + compression) -------- */
 const fileInput=byId('photos'), drop=byId('drop');
 let currentPhotos=[];
 function drawPreviews(){ const prev=byId('prev'); prev.innerHTML=''; currentPhotos.forEach(src=>{const im=document.createElement('img'); im.src=src; prev.appendChild(im);}); }
@@ -205,7 +203,7 @@ drop.addEventListener('click',()=>fileInput.click());
 fileInput.onchange=()=>handleFiles(fileInput.files);
 
 function handleFiles(files){ if(!files||!files.length) return; [...files].forEach(f=>compressImageFile(f).then(url=>{ currentPhotos.push(url); drawPreviews(); })); }
-function compressImageFile(file,maxDim=1600,quality=0.8){
+function compressImageFile(file,maxDim=1400,quality=0.8){
   return new Promise((res,rej)=>{
     const reader=new FileReader();
     reader.onload=()=>{
@@ -224,7 +222,7 @@ function compressImageFile(file,maxDim=1600,quality=0.8){
   });
 }
 
-/* ========== Form actions ========== */
+/* -------- Form actions -------- */
 let editingId=null;
 byId('added').value = todayISO();
 
@@ -245,27 +243,28 @@ byId('saveCar').onclick = ()=>{
   setInv(inv); byId('formMsg').textContent='Saved.'; byId('resetForm').click();
 };
 
-/* ========== Download / Clear / Load remote ========== */
+/* -------- Download / Clear / Load remote -------- */
 byId('downloadLocal').onclick=()=>{ const blob=new Blob([JSON.stringify(getInv(),null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='inventory.json'; a.click(); URL.revokeObjectURL(a.href); };
 byId('clearLocal').onclick=()=>{ if(confirm('Clear local inventory?')) setInv([]); };
+
 byId('loadRemote').onclick=async()=>{
   try{
     const r = await fetch('./inventory.json?ts='+Date.now(), {cache:'no-store'});
     if(!r.ok) throw new Error('HTTP '+r.status);
     const data = await r.json();
     if(!Array.isArray(data)) throw new Error('Remote file is not an array.');
-    // Auto-add missing IDs
+    // Auto-add IDs if missing
     data.forEach(c=>{ if(!c.id){ c.id = uid(); } });
     setInv(data);
-    alert('Loaded from GitHub ('+data.length+' cars). Missing IDs were added automatically—click Publish to save.');
+    alert('Loaded from GitHub ('+data.length+' cars). Missing IDs were added — click Publish to save.');
   }catch(e){
     alert('Could not load from GitHub: '+e.message);
   }
 };
 
-/* ========== Publish to GitHub (writes inventory.json) ========== */
+/* -------- Publish to GitHub -------- */
 byId('publish').onclick = async ()=>{
-  const user=byId('u').value.trim(), repo=byId('r').value.trim(), branch=byId('b').value.trim()||'main', token=byId('t').value.trim();
+  const user=byId('u').value.trim()||'vahehr-dotcom', repo=byId('r').value.trim()||'Tesla_Inventory', branch=byId('b').value.trim()||'main', token=byId('t').value.trim();
   if(!user||!repo||!token){ byId('pubMsg').textContent='Fill username, repo, and token.'; return; }
   const content = JSON.stringify(getInv(), null, 2);
   const enc = btoa(unescape(encodeURIComponent(content)));
@@ -284,15 +283,15 @@ byId('publish').onclick = async ()=>{
   }catch(e){ byId('pubMsg').textContent='Publish failed: '+e.message; }
 };
 
-/* ========== Share link (short root URL only) ========== */
-byId('shareSite').onclick = async ()=>{
-  const root = new URL('.', location.href).href.replace(/admin\.html(\?.*)?$/i,'');
+/* -------- Share link (SHORT buyer URL only) -------- */
+document.getElementById('shareSite').onclick = async ()=>{
+  const shortUrl = `https://${(cfg.user||'vahehr-dotcom')}.github.io/${(cfg.repo||'Tesla_Inventory')}/`;
   try{
-    if(navigator.share){ await navigator.share({title:'Current Inventory', url:root}); }
-    else{ await (navigator.clipboard?.writeText(root) || Promise.reject()); alert('Link copied:\n'+root); }
+    if(navigator.share){ await navigator.share({ title:'Current Inventory', url: shortUrl }); }
+    else{ await (navigator.clipboard?.writeText(shortUrl) || Promise.reject()); alert('Link copied:\n'+shortUrl); }
   }catch{
-    const ta=document.createElement('textarea'); ta.value=root; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
-    alert('Link copied:\n'+root);
+    const ta=document.createElement('textarea'); ta.value=shortUrl; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); ta.remove(); alert('Link copied:\n'+shortUrl);
   }
 };
 </script>
