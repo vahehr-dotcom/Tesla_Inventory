@@ -20,13 +20,14 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-appl
 header{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line)}
 .wrap{max-width:620px;margin:0 auto;padding:12px}
 .brand{display:flex;gap:10px;align-items:center}
+.brand img{height:28px;width:auto;display:block}
 .brand b{font-size:18px}
 h1{font-size:18px;margin:6px 0}
 .btns{display:flex;gap:8px}
 button{height:36px;padding:0 12px;border:1px solid var(--line);background:#fff;border-radius:12px;cursor:pointer}
 
 .list{display:grid;grid-template-columns:1fr;gap:var(--gap);padding:12px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;position:relative}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer}
 .photo{width:100%;aspect-ratio:4/3;background:#e5e7eb}
 .photo img{width:100%;height:100%;object-fit:cover;display:block}
 .info{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px}
@@ -68,7 +69,10 @@ body.snapshot .photo img{height:160px}
 <body>
 <header>
   <div class="wrap" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-    <div class="brand"><b>E.V. Exchange Brokers</b></div>
+    <div class="brand">
+      <img src="./logo.png" alt="logo" onerror="this.remove()">
+      <b>E.V. Exchange Brokers</b>
+    </div>
     <div class="btns"><button id="snapshotBtn">Snapshot</button></div>
   </div>
 </header>
@@ -105,7 +109,7 @@ body.snapshot .photo img{height:160px}
 </div>
 
 <script>
-const PHONE = "+14244256211";
+const PHONE = "+14244256211"; // used by Contact button
 
 const statusEl=document.getElementById('status'), list=document.getElementById('list');
 const modal=document.getElementById('modal'), mTitle=document.getElementById('mTitle'), mMiles=document.getElementById('mMiles'), mPrice=document.getElementById('mPrice'), mNotes=document.getElementById('mNotes');
@@ -118,6 +122,15 @@ const fmtMiles=n=>{try{return new Intl.NumberFormat('en-US').format(n)+' mi'}cat
 const placeholder=()=>'data:image/svg+xml;charset=utf-8,'+encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='800' height='600' fill='#e5e7eb'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#94a3b8' font-family='system-ui' font-size='28'>Photo</text></svg>");
 
 let DATA=[], current=null, idx=0;
+
+function ensureIds(arr){
+  return (arr||[]).map(c=>{
+    if(!c.id){
+      c.id = (Math.random().toString(36)+Math.random().toString(36)).replace(/[^a-z0-9]/g,'').slice(2,10);
+    }
+    return c;
+  });
+}
 
 function render(cars){
   list.innerHTML='';
@@ -190,12 +203,17 @@ async function copyText(t){ if(navigator.clipboard && window.isSecureContext){ r
 
 fetch('./inventory.json?ts='+Date.now(), {cache:'no-store'})
   .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
-  .then(d=>{ DATA=Array.isArray(d)?d:[]; render(DATA); const m=new URL(location.href).hash.match(/car=([A-Za-z0-9_-]+)/); if(m){ openModal(m[1]); } })
+  .then(d=>{
+    DATA = ensureIds(Array.isArray(d)? d : []);
+    render(DATA);
+    const m = new URL(location.href).hash.match(/car=([A-Za-z0-9_-]+)/);
+    if(m){ openModal(m[1]); }
+  })
   .catch(err=>{ statusEl.innerHTML="Viewer error. Check <code>inventory.json</code> exists.<br>"+(err.message||err) });
 
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal() });
-document.getElementById('mClose').addEventListener('click', closeModal);
-document.getElementById('snapshotBtn').addEventListener('click',()=>{ document.body.classList.toggle('snapshot'); });
+mClose.addEventListener('click', closeModal);
+snapshotBtn.addEventListener('click',()=>{ document.body.classList.toggle('snapshot'); });
 </script>
 </body>
 </html>
