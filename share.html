@@ -15,7 +15,7 @@
 <style>
 :root{
   --bg:#f6f7fb; --card:#fff; --text:#0f172a; --muted:#475569; --line:#e2e8f0; --gap:12px;
-  /* Friendlier CTA color (blue). To use green instead, swap to #22c55e. */
+  /* Friendly CTA color (blue). To use green, change to #22c55e. */
   --cta:#3b82f6; --ctaText:#fff;
 }
 *{box-sizing:border-box}
@@ -29,11 +29,14 @@ h1{font-size:18px;margin:6px 0}
 .btns{display:flex;gap:8px}
 button{height:36px;padding:0 12px;border:1px solid var(--line);background:#fff;border-radius:12px;cursor:pointer}
 
-/* Big centered CTA */
+/* Big centered CTA (anchor styled like a button; no underline) */
 .ctaSell{padding:12px}
 .ctaSell .pill{
   display:block;width:100%;text-align:center;background:var(--cta);color:var(--ctaText);
-  font-weight:800;border-radius:14px;height:52px;line-height:52px;border:none;letter-spacing:.2px
+  font-weight:800;font-size:18px; /* a bit bigger */
+  border-radius:14px;padding:14px 16px;line-height:1.2;border:0;
+  text-decoration:none; letter-spacing:.2px; -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
 }
 .ctaSell .pill:active{transform:scale(0.99)}
 
@@ -92,7 +95,7 @@ body.snapshot .photo img{height:160px}
 
 <!-- Big centered CTA -->
 <div class="wrap ctaSell">
-  <a href="./sell.html"><button class="pill">(Sell Your Car, Get an Offer Now!)</button></a>
+  <a class="pill" href="./sell.html">(Sell Your Car, Get an Offer Now!)</a>
 </div>
 
 <main>
