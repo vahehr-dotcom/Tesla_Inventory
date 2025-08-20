@@ -7,11 +7,14 @@
 <link rel="preconnect" href="https://unpkg.com">
 <script src="https://unpkg.com/quagga@0.12.1/dist/quagga.min.js"></script>
 <style>
-:root{--bg:#f6f7fb;--card:#fff;--text:#0f172a;--muted:#475569;--line:#e2e8f0;--accent:#0ea5e9;--danger:#ef4444}
+:root{
+  --bg:#f6f7fb; --card:#fff; --text:#0f172a; --muted:#475569; --line:#e2e8f0;
+  --accent:#0ea5e9; --danger:#ef4444; --cta:#ef233c; --ctaText:#fff;
+}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
 header{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line)}
-.wrap{max-width:620px;margin:0 auto;padding:12px}
+.wrap{max-width:680px;margin:0 auto;padding:12px}
 h1{font-size:20px;margin:6px 0}
 small.muted{color:var(--muted)}
 .card{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-top:12px}
@@ -20,24 +23,39 @@ small.muted{color:var(--muted)}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 label{font-size:12px;color:var(--muted)}
 input,select,textarea,button{font:inherit}
-input,select,textarea{width:100%;padding:9px;border:1px solid var(--line);border-radius:10px;background:#fff}
+input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff}
 textarea{min-height:80px;resize:vertical}
 .actions{display:flex;flex-wrap:wrap;gap:8px}
 button{height:40px;padding:0 14px;border:1px solid var(--line);background:#fff;border-radius:12px;cursor:pointer}
 button.primary{background:var(--accent);color:#fff;border-color:transparent;font-weight:700}
 button.warn{border-color:var(--danger);color:#ef4444}
-#scanner{position:relative;background:#000;border-radius:12px;overflow:hidden;display:none}
-#scanner video{width:100%;height:auto;display:block}
 .badge{display:inline-block;background:#e2e8f0;color:#334155;border-radius:999px;padding:2px 8px;font-size:12px}
 .note{font-size:12px;color:#475569}
 .success{color:#16a34a}
 .error{color:#ef4444}
+
+/* Scanner */
+#scanner{position:relative;background:#000;border-radius:12px;overflow:hidden;display:none;margin-top:8px}
+#scanner video{width:100%;height:auto;display:block}
+.scan-controls{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.scan-controls button{height:36px}
+#zoomWrap{display:none;align-items:center;gap:6px}
+#zoom{width:160px}
+
+/* Details collapsible */
+details>summary{cursor:pointer;list-style:none;padding:10px;border:1px dashed var(--line);border-radius:10px;background:#fafafa}
+details>summary::marker, details>summary::-webkit-details-marker{display:none}
+details[open]>summary{background:#eef6ff;border-color:#cfe4ff}
+
+/* CTA on this page */
+.ctaTop{margin-top:8px}
+.ctaTop .pill{display:block;width:100%;text-align:center;background:var(--cta);color:var(--ctaText);font-weight:800;border-radius:14px;height:52px;line-height:52px;border:none}
 </style>
 </head>
 <body>
 <header>
   <div class="wrap" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-    <b>Sell Your Tesla</b>
+    <h1>Sell Your Tesla</h1>
     <div class="actions">
       <a href="./index.html"><button>View Inventory</button></a>
     </div>
@@ -46,13 +64,18 @@ button.warn{border-color:var(--danger);color:#ef4444}
 
 <main class="wrap">
 
-  <!-- Simple settings (local only) -->
+  <!-- Quick CTA (big, centered) -->
+  <div class="ctaTop">
+    <button class="pill" id="jumpToForm" type="button">Get a Cash Offer</button>
+  </div>
+
+  <!-- Settings (local only) -->
   <div class="card">
     <div class="hd"><b>Settings</b><small class="muted">Saved only on this device</small></div>
     <div class="bd">
       <div class="row">
         <div>
-          <label>Lead receiver (phone SMS)</label>
+          <label>Receive leads via SMS (your phone)</label>
           <input id="destPhone" placeholder="+14244256211" value="+14244256211">
         </div>
         <div>
@@ -64,27 +87,39 @@ button.warn{border-color:var(--danger);color:#ef4444}
         <button id="saveCfg">Save</button>
         <small id="cfgMsg" class="muted"></small>
       </div>
-      <div class="note">If you add a Formspree endpoint, submissions will also POST there (SMS still opens so sellers can attach photos easily).</div>
+      <div class="note">If you add a Formspree endpoint, submissions will also POST there (SMS still opens for easy photo replies).</div>
     </div>
   </div>
 
-  <!-- VIN + car info -->
-  <div class="card">
-    <div class="hd"><b>Vehicle</b><span class="badge">VIN scan + validation</span></div>
+  <!-- Short form -->
+  <div class="card" id="formCard">
+    <div class="hd"><b>Vehicle (short form)</b><span class="badge">VIN scan + validation</span></div>
     <div class="bd">
+      <!-- VIN row -->
       <div class="row">
         <div>
           <label>VIN (17 chars)</label>
           <input id="vin" maxlength="17" placeholder="5YJ...">
+          <div id="vinMsg" class="note"></div>
         </div>
-        <div class="actions" style="align-items:end">
-          <button id="scan" type="button">Scan VIN</button>
-          <button id="stop" type="button">Stop</button>
+        <div>
+          <label>&nbsp;</label>
+          <div class="scan-controls">
+            <button id="scan" type="button">Start scan</button>
+            <button id="stop" type="button">Stop</button>
+            <button id="torch" type="button">Flashlight</button>
+            <label style="display:none"><input id="torchChk" type="checkbox"> Torch</label>
+          </div>
+          <div class="scan-controls">
+            <input id="photoPick" type="file" accept="image/*" capture="environment" style="display:none">
+            <button id="scanPhoto" type="button">Scan from photo</button>
+            <span id="zoomWrap"><span class="note">Zoom</span> <input id="zoom" type="range" min="1" max="1" step="0.1"></span>
+          </div>
         </div>
       </div>
-      <div id="vinMsg" class="note"></div>
       <div id="scanner"><video muted playsinline></video></div>
 
+      <!-- Essentials -->
       <div class="row" style="margin-top:10px">
         <div><label>Year</label><input id="year" type="number" min="2008" max="2100" placeholder="2020"></div>
         <div><label>Model</label>
@@ -96,53 +131,48 @@ button.warn{border-color:var(--danger);color:#ef4444}
         </div>
       </div>
       <div class="row">
-        <div><label>Trim</label><input id="trim" placeholder="Standard Plus / Long Range / Performance / Plaid"></div>
         <div><label>Mileage</label><input id="miles" type="number" min="0" step="500" placeholder="66000"></div>
-      </div>
-      <div class="row">
-        <div><label>Asking Price (USD)</label><input id="price" type="number" min="0" step="100" placeholder="19000"></div>
         <div><label>ZIP</label><input id="zip" inputmode="numeric" placeholder="90210"></div>
       </div>
-      <div class="row">
-        <div><label>Condition</label>
-          <select id="condition">
-            <option value="">Select…</option>
-            <option>Excellent</option><option>Good</option><option>Fair</option><option>Needs work</option>
-          </select>
-        </div>
-        <div><label>Title status</label>
-          <select id="title">
-            <option value="">Select…</option>
-            <option>Clean</option><option>Salvage</option><option>Rebuilt</option><option>Lien</option>
-          </select>
-        </div>
-      </div>
-      <div><label>Notes</label><textarea id="notes" placeholder="Color, options, accidents, FSD, features, issues…"></textarea></div>
-    </div>
-  </div>
 
-  <!-- Seller contact -->
-  <div class="card">
-    <div class="hd"><b>Your Contact</b><small class="muted">So we can respond</small></div>
-    <div class="bd">
-      <div class="row">
-        <div><label>Name</label><input id="name" placeholder="First Last"></div>
-        <div><label>Phone</label><input id="phone" placeholder="(555) 555-5555"></div>
-      </div>
-      <div><label>Email</label><input id="email" type="email" placeholder="you@example.com"></div>
-    </div>
-  </div>
+      <!-- More (optional) -->
+      <details style="margin-top:8px">
+        <summary>More details (optional)</summary>
+        <div class="row" style="margin-top:10px">
+          <div><label>Trim</label><input id="trim" placeholder="Standard Plus / Long Range / Performance / Plaid"></div>
+          <div><label>Asking Price (USD)</label><input id="price" type="number" min="0" step="100" placeholder="19000"></div>
+        </div>
+        <div class="row">
+          <div><label>Condition</label>
+            <select id="condition">
+              <option value="">Select…</option>
+              <option>Excellent</option><option>Good</option><option>Fair</option><option>Needs work</option>
+            </select>
+          </div>
+          <div><label>Title status</label>
+            <select id="title">
+              <option value="">Select…</option>
+              <option>Clean</option><option>Salvage</option><option>Rebuilt</option><option>Lien</option>
+            </select>
+          </div>
+        </div>
+        <div><label>Notes</label><textarea id="notes" placeholder="Color, options, accidents, FSD, features, issues…"></textarea></div>
+      </details>
 
-  <!-- Actions -->
-  <div class="card">
-    <div class="hd"><b>Send</b><small class="muted">Fastest: text us; or submit form if configured</small></div>
-    <div class="bd">
-      <div class="actions">
+      <!-- Contact -->
+      <div class="row" style="margin-top:10px">
+        <div><label>Your name</label><input id="name" placeholder="First Last"></div>
+        <div><label>Your phone</label><input id="phone" placeholder="(555) 555-5555"></div>
+      </div>
+      <div><label>Email (optional)</label><input id="email" type="email" placeholder="you@example.com"></div>
+
+      <!-- Actions -->
+      <div class="actions" style="margin-top:12px">
         <button id="sendSms" class="primary">Text this info</button>
         <button id="submitForm">Submit form</button>
         <button id="copySummary">Copy summary</button>
       </div>
-      <div class="note" style="margin-top:8px">After sending, reply to our text with photos of your car (exterior/interior, odometer, VIN sticker).</div>
+      <div class="note" style="margin-top:8px">After sending, reply to our text with photos (exterior/interior, odometer, VIN sticker).</div>
       <div id="sendMsg" class="note"></div>
     </div>
   </div>
@@ -165,22 +195,19 @@ document.getElementById('saveCfg').onclick = ()=>{
   document.getElementById('cfgMsg').textContent = 'Saved.';
   setTimeout(()=>document.getElementById('cfgMsg').textContent='', 1500);
 };
+document.getElementById('jumpToForm').onclick = ()=>document.getElementById('formCard').scrollIntoView({behavior:'smooth'});
 
 /* ---------- VIN tools ---------- */
 const translit = {A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9,
   0:0,1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8,9:9};
 const weights = [8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2];
-function cleanVIN(v){ return (v||'').toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g,''); } // no I,O,Q
+function cleanVIN(v){ return (v||'').toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g,''); } // exclude I,O,Q
 function vinCheckDigit(v){
   v = cleanVIN(v);
   if(v.length!==17) return false;
   let sum=0;
-  for(let i=0;i<17;i++){
-    const ch=v[i]; const val=translit[ch]; if(val===undefined) return false;
-    sum += val * weights[i];
-  }
-  const rem = sum % 11;
-  const check = rem===10 ? 'X' : String(rem);
+  for(let i=0;i<17;i++){ const ch=v[i]; const val=translit[ch]; if(val===undefined) return false; sum += val * weights[i]; }
+  const rem = sum % 11; const check = rem===10 ? 'X' : String(rem);
   return v[8]===check;
 }
 function vinStatus(v){
@@ -189,42 +216,121 @@ function vinStatus(v){
   if(v.length<17) return 'Enter full 17-character VIN.';
   return vinCheckDigit(v) ? 'VIN looks valid ✔' : 'VIN format/check digit mismatch.';
 }
+document.getElementById('vin').addEventListener('input', e=>{
+  const v = cleanVIN(e.target.value);
+  e.target.value = v;
+  const ok = v.length===17 && vinCheckDigit(v);
+  const m = document.getElementById('vinMsg');
+  m.textContent = vinStatus(v);
+  m.className = 'note ' + (ok?'success':'error');
+});
 
-/* ---------- VIN scanner (Quagga, Code39/128) ---------- */
+/* ---------- Quagga live scan with better defaults ---------- */
 let scanning=false;
 const scanner = document.getElementById('scanner');
+const zoomWrap = document.getElementById('zoomWrap');
+const zoom = document.getElementById('zoom');
+
 document.getElementById('scan').onclick = ()=>{
   if(scanning) return;
   scanning=true; scanner.style.display='block';
   Quagga.init({
-    inputStream:{ name:"Live", type:"LiveStream", target:scanner, constraints:{ facingMode:"environment" } },
+    inputStream:{
+      name:"Live", type:"LiveStream", target:scanner,
+      constraints:{
+        facingMode:"environment",
+        width:{ideal:1280}, aspectRatio:{ideal:1.777}
+      },
+      area:{ top:"20%", right:"20%", left:"20%", bottom:"20%" } // center box
+    },
+    locator:{ patchSize:"medium", halfSample:true },
     decoder:{ readers:["code_39_reader","code_128_reader"] },
     locate:true
   }, err=>{
     if(err){ scanning=false; scanner.style.display='none'; alert('Camera error: '+err); return; }
     Quagga.start();
+    setupCameraControls();
   });
   Quagga.onDetected(onDetected);
 };
+
 document.getElementById('stop').onclick = stopScan;
+
 function onDetected(res){
   const code = (res && res.codeResult && res.codeResult.code) || '';
   const vin = cleanVIN(code);
-  if(vin.length===17){
+  if(vin.length===17 && vinCheckDigit(vin)){
     document.getElementById('vin').value = vin;
-    document.getElementById('vinMsg').textContent = vinStatus(vin);
+    const m=document.getElementById('vinMsg'); m.textContent='VIN looks valid ✔'; m.className='note success';
     stopScan();
   }
 }
-function stopScan(){ if(!scanning) return; Quagga.stop(); Quagga.offDetected(onDetected); scanner.style.display='none'; scanning=false; }
 
-/* ---------- live VIN validation ---------- */
-document.getElementById('vin').addEventListener('input', e=>{
-  const v = cleanVIN(e.target.value);
-  e.target.value = v;
-  document.getElementById('vinMsg').innerHTML = vinStatus(v);
-  if(v.length===17 && vinCheckDigit(v)) document.getElementById('vinMsg').className='note success';
-  else document.getElementById('vinMsg').className='note error';
+function stopScan(){
+  if(!scanning) return;
+  Quagga.stop(); Quagga.offDetected(onDetected); scanner.style.display='none'; scanning=false;
+}
+
+/* Torch + Zoom (when supported) */
+async function setupCameraControls(){
+  try{
+    const track = Quagga.CameraAccess && Quagga.CameraAccess.getActiveTrack ? Quagga.CameraAccess.getActiveTrack() : null;
+    if(!track) return;
+
+    const caps = track.getCapabilities ? track.getCapabilities() : {};
+    // Torch
+    const torchBtn = document.getElementById('torch');
+    if(caps.torch){
+      torchBtn.style.display='inline-block';
+      let on=false;
+      torchBtn.onclick = async ()=>{
+        on=!on;
+        try{ await track.applyConstraints({ advanced:[{ torch:on }] }); }catch(e){}
+        torchBtn.textContent = on ? 'Flashlight (ON)' : 'Flashlight';
+      };
+    }else{
+      torchBtn.style.display='none';
+    }
+
+    // Zoom
+    if(caps.zoom){
+      zoomWrap.style.display='inline-flex';
+      zoom.min = caps.zoom.min || 1;
+      zoom.max = caps.zoom.max || 5;
+      zoom.step = caps.zoom.step || 0.1;
+      zoom.value = caps.zoom.min || 1;
+      zoom.oninput = async ()=>{ try{ await track.applyConstraints({ advanced:[{ zoom:+zoom.value }] }); }catch(e){} };
+    }else{
+      zoomWrap.style.display='none';
+    }
+  }catch(e){}
+}
+
+/* ---------- Scan from photo ---------- */
+document.getElementById('scanPhoto').onclick = ()=>document.getElementById('photoPick').click();
+document.getElementById('photoPick').addEventListener('change', async (e)=>{
+  const file = e.target.files && e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    Quagga.decodeSingle({
+      src: reader.result,
+      numOfWorkers: 0,
+      inputStream:{ size: 800 },
+      locator:{ patchSize:"medium", halfSample:true },
+      decoder:{ readers:["code_39_reader","code_128_reader"] },
+      locate:true
+    }, (res)=>{
+      const code = res && res.codeResult && res.codeResult.code || '';
+      const vin = cleanVIN(code);
+      if(vin.length===17 && vinCheckDigit(vin)){
+        document.getElementById('vin').value = vin;
+        const m=document.getElementById('vinMsg'); m.textContent='VIN looks valid ✔'; m.className='note success';
+      }else{
+        alert('Could not read a valid VIN from this photo. Try a clearer shot of the barcode label.');
+      }
+    });
+  };
+  reader.readAsDataURL(file);
 });
 
 /* ---------- summary / actions ---------- */
@@ -239,14 +345,12 @@ function buildSummary(){
   const lines=[
     header,
     `VIN: ${vin||'-'}`,
-    `Year/Model/Trim: ${[year,model,trim].filter(Boolean).join(' ')||'-'}`,
-    `Mileage: ${miles?fmt(miles)+' mi':'-'}`,
-    `Asking: ${price?('$'+fmt(price)):'-'}`,
-    `Condition: ${cond||'-'} | Title: ${title||'-'}`,
-    `ZIP: ${zip||'-'}`,
-    `Name: ${name||'-'} | Phone: ${phone||'-'} | Email: ${email||'-'}`,
-    `Notes: ${notes||'-'}`
-  ];
+    `Year/Model: ${[year,model].filter(Boolean).join(' ')||'-'}`,
+    `Mileage: ${miles?fmt(miles)+' mi':'-'} | ZIP: ${zip||'-'}`,
+    (trim||price||cond||title)? `Trim: ${trim||'-'} | Asking: ${price?('$'+fmt(price)):'-'} | Cond: ${cond||'-'} | Title: ${title||'-'}` : null,
+    `Name: ${name||'-'} | Phone: ${phone||'-'}${email?(' | Email: '+email):''}`,
+    notes?`Notes: ${notes}`:null
+  ].filter(Boolean);
   return lines.join('\n');
 }
 
@@ -258,7 +362,7 @@ async function copyText(t){
   }
 }
 
-/* SMS: opens seller's default messenger to your number with prefilled text */
+/* SMS: opens seller's messenger to your number with prefilled text */
 document.getElementById('sendSms').onclick = ()=>{
   const msg=buildSummary();
   const dest=(document.getElementById('destPhone').value||cfg.phone||'').replace(/[^0-9+]/g,'');
