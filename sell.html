@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Sell Your Tesla</title>
 
-<!-- OCR + Barcode libs (UMD, no build tools needed) -->
 <link rel="preconnect" href="https://unpkg.com">
 <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
 <script src="https://unpkg.com/@zxing/library@latest"></script>
@@ -33,11 +32,18 @@ textarea{min-height:80px;resize:vertical}
 .actions{display:flex;flex-wrap:wrap;gap:8px}
 button{height:40px;padding:0 14px;border:1px solid var(--line);background:#fff;border-radius:12px;cursor:pointer}
 button.primary{background:var(--accent);color:#fff;border-color:transparent;font-weight:700}
-button.warn{border-color:var(--danger);color:#ef4444}
 .badge{display:inline-block;background:#e2e8f0;color:#334155;border-radius:999px;padding:2px 8px;font-size:12px}
 .note{font-size:12px;color:#475569}
 .success{color:var(--ok)}
 .error{color:var(--danger)}
+
+/* Notice + footer */
+.notice{background:#f8fafc;border-bottom:1px solid var(--line);color:#475569}
+.notice .wrap{padding:8px 12px;font-size:12px}
+.legal{border-top:1px solid var(--line);color:#64748b;background:#fff}
+.legal .wrap{padding:16px 12px;font-size:12px;line-height:1.5}
+.legal a{color:#3b82f6;text-decoration:none}
+.legal a:hover{text-decoration:underline}
 
 /* Scanner UI */
 #scanner{position:relative;background:#000;border-radius:12px;overflow:hidden;display:none;margin-top:8px}
@@ -55,6 +61,12 @@ details[open]>summary{background:#eef6ff;border-color:#cfe4ff}
 </style>
 </head>
 <body>
+
+<!-- small compliance notice -->
+<div class="notice"><div class="wrap">
+  By appointment only. We purchase EVs for cash and connect sellers with buyers.
+</div></div>
+
 <header>
   <div class="wrap" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
     <h1>Sell Your Tesla</h1>
@@ -180,8 +192,17 @@ details[open]>summary{background:#eef6ff;border-color:#cfe4ff}
 
 </main>
 
+<footer class="legal">
+  <div class="wrap">
+    <div><strong>Disclosure:</strong> Retail transactions are completed by our licensed partner, Waltons Auto Sales. Private-party transactions are between individual buyer and seller. We are not affiliated with Tesla, Inc.</div>
+    <div style="margin-top:6px">© <span id="yr"></span> E.V. Exchange · <a href="./privacy.html">Privacy</a> · <a href="./terms.html">Terms</a></div>
+  </div>
+</footer>
+
 <script>
-/* ---------- tiny store for settings ---------- */
+document.getElementById('yr').textContent = new Date().getFullYear();
+
+/* settings */
 const cfg = {
   get phone(){ return localStorage.getItem('sell_phone') || '+14244256211'; },
   set phone(v){ localStorage.setItem('sell_phone', v || ''); },
@@ -195,33 +216,24 @@ saveCfg.onclick = ()=>{
   cfgMsg.textContent = 'Saved.'; setTimeout(()=>cfgMsg.textContent='', 1500);
 };
 
-/* ---------- VIN helpers ---------- */
-const translit = {A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9,
-  0:0,1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8,9:9};
+/* VIN helpers */
+const translit = {A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9,0:0,1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8,9:9};
 const weights = [8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2];
-function cleanVIN(v){ return (v||'').toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g,''); } // exclude I,O,Q
+function cleanVIN(v){ return (v||'').toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g,''); }
 function vinCheckDigit(v){
   v = cleanVIN(v); if(v.length!==17) return false;
   let sum=0; for(let i=0;i<17;i++){ const ch=v[i]; const val=translit[ch]; if(val===undefined) return false; sum += val * weights[i]; }
   const rem = sum % 11; const check = rem===10 ? 'X' : String(rem); return v[8]===check;
 }
-function yearFromCode(c){
-  const map = {A:2010,B:2011,C:2012,D:2013,E:2014,F:2015,G:2016,H:2017,J:2018,K:2019,L:2020,M:2021,N:2022,P:2023,R:2024,S:2025,T:2026,V:2027,W:2028,X:2029,Y:2030,1:2031,2:2032,3:2033,4:2034,5:2035,6:2036,7:2037,8:2038,9:2039};
-  return map[c]||'';
-}
-function modelFromTeslaChar(c){
-  const m = { 'S':'Model S', '3':'Model 3', 'X':'Model X', 'Y':'Model Y', 'R':'Roadster', 'C':'Cybertruck' };
-  return m[c]||'';
-}
-function isTeslaWMI(w){ return ['5YJ','7SA','LRW','XP7'].includes(w); } // common Tesla WMIs
+function yearFromCode(c){ const map = {A:2010,B:2011,C:2012,D:2013,E:2014,F:2015,G:2016,H:2017,J:2018,K:2019,L:2020,M:2021,N:2022,P:2023,R:2024,S:2025,T:2026,V:2027,W:2028,X:2029,Y:2030,1:2031,2:2032,3:2033,4:2034,5:2035,6:2036,7:2037,8:2038,9:2039}; return map[c]||''; }
+function modelFromTeslaChar(c){ const m = { 'S':'Model S', '3':'Model 3', 'X':'Model X', 'Y':'Model Y', 'R':'Roadster', 'C':'Cybertruck' }; return m[c]||''; }
+function isTeslaWMI(w){ return ['5YJ','7SA','LRW','XP7'].includes(w); }
 function decodeVIN(v){
   v = cleanVIN(v); if(v.length!==17) return {};
   const wmi = v.slice(0,3), year = yearFromCode(v[9])||'', modelChar = v[3], model = modelFromTeslaChar(modelChar);
   const make = isTeslaWMI(wmi) ? 'Tesla' : '';
   return { make, year, model };
 }
-
-/* Live VIN validity message */
 vin.addEventListener('input', e=>{
   const v = cleanVIN(e.target.value); e.target.value = v;
   const ok = v.length===17 && vinCheckDigit(v);
@@ -229,15 +241,13 @@ vin.addEventListener('input', e=>{
   vinMsg.className = 'note ' + (ok ? 'success' : 'error');
 });
 
-/* ---------- OCR (printed VIN) ---------- */
+/* OCR */
 function downscaleToDataURL(imgSrc, maxW=1600, maxH=1600){
   return new Promise(res=>{
     const img=new Image(); img.onload=()=>{
-      let {width:w,height:h}=img;
-      const r=Math.min(maxW/w, maxH/h, 1); const cw=Math.round(w*r), ch=Math.round(h*r);
-      const c=document.createElement('canvas'); c.width=cw; c.height=ch;
-      const ctx=c.getContext('2d'); ctx.drawImage(img,0,0,cw,ch);
-      res(c.toDataURL('image/jpeg',0.92));
+      let {width:w,height:h}=img; const r=Math.min(maxW/w, maxH/h, 1);
+      const cw=Math.round(w*r), ch=Math.round(h*r); const c=document.createElement('canvas'); c.width=cw; c.height=ch;
+      const ctx=c.getContext('2d'); ctx.drawImage(img,0,0,cw,ch); res(c.toDataURL('image/jpeg',0.92));
     }; img.src=imgSrc;
   });
 }
@@ -248,18 +258,13 @@ async function ocrVINFromFile(file){
       try{
         const dataUrl = await downscaleToDataURL(rd.result);
         const worker = Tesseract.createWorker();
-        await worker.load();
-        await worker.loadLanguage('eng');
-        await worker.initialize('eng');
-        // Limit character set to VIN chars (no I,O,Q; allow 0-9 A-H J-N P R-Z)
+        await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng');
         await worker.setParameters({ tessedit_char_whitelist:'ABCDEFGHJKLMNPRSTUVWXYZ0123456789' });
-        const { data } = await worker.recognize(dataUrl);
-        await worker.terminate();
+        const { data } = await worker.recognize(dataUrl); await worker.terminate();
         const text=(data && data.text || '').toUpperCase();
         const candidates = (text.match(/[A-HJ-NPR-Z0-9]{17}/g)||[]).filter(v=>vinCheckDigit(v));
-        // If none valid by check digit, fall back to the first 17-char candidate
-        const vin = candidates[0] || ((text.match(/[A-HJ-NPR-Z0-9]{17}/)||[])[0]||'');
-        resolve(vin);
+        const vinFound = candidates[0] || ((text.match(/[A-HJ-NPR-Z0-9]{17}/)||[])[0]||'');
+        resolve(vinFound);
       }catch(err){ reject(err); }
     };
     rd.onerror=reject; rd.readAsDataURL(file);
@@ -269,47 +274,32 @@ takePhoto.onclick = ()=> fileCamera.click();
 pickPhoto.onclick = ()=> filePicker.click();
 fileCamera.onchange = ()=> handleVINPhoto(fileCamera.files && fileCamera.files[0]);
 filePicker.onchange = ()=> handleVINPhoto(filePicker.files && filePicker.files[0]);
-
 async function handleVINPhoto(file){
   if(!file) return;
   vinMsg.textContent='Reading VIN from photo…'; vinMsg.className='note';
   try{
     const v = await ocrVINFromFile(file);
-    if(v && v.length===17){
-      vin.value = v; vin.dispatchEvent(new Event('input'));
-      autoFillFromVIN(v);
-    }else{
-      vinMsg.textContent='Could not find a clear 17-character VIN in this photo.'; vinMsg.className='note error';
-    }
-  }catch(e){
-    vinMsg.textContent='OCR error. Try a clearer photo of the VIN plate.'; vinMsg.className='note error';
-  }
+    if(v && v.length===17){ vin.value = v; vin.dispatchEvent(new Event('input')); autoFillFromVIN(v); }
+    else{ vinMsg.textContent='Could not find a clear 17-character VIN in this photo.'; vinMsg.className='note error'; }
+  }catch(e){ vinMsg.textContent='OCR error. Try a clearer photo of the VIN plate.'; vinMsg.className='note error'; }
 }
 
-/* ---------- Barcode/QR/PDF417 scan ---------- */
+/* Barcode/QR/PDF417 */
 let codeReader=null, scanning=false;
 async function startBarcodeScan(){
   if(scanning) return; scanning=true; scanner.style.display='block';
   try{
     if(!codeReader){ codeReader = new ZXingBrowser.BrowserMultiFormatReader(); }
-    await codeReader.decodeFromVideoDevice(null, 'video', (result, err)=>{
+    await codeReader.decodeFromVideoDevice(null, 'video', (result)=>{
       if(result && result.text){
         const raw = result.text.toUpperCase();
-        // Try to extract a VIN from the payload (handles QR/PDF417 contents too)
         const m = raw.match(/[A-HJ-NPR-Z0-9]{17}/);
         const v = m ? m[0] : '';
-        if(v){
-          vin.value = v; vin.dispatchEvent(new Event('input'));
-          autoFillFromVIN(v);
-          stopBarcodeScan();
-        }
+        if(v){ vin.value = v; vin.dispatchEvent(new Event('input')); autoFillFromVIN(v); stopBarcodeScan(); }
       }
     });
     setupTrackControls();
-  }catch(e){
-    alert('Camera error: '+ (e && e.message || e));
-    stopBarcodeScan();
-  }
+  }catch(e){ alert('Camera error: '+ (e && e.message || e)); stopBarcodeScan(); }
 }
 function stopBarcodeScan(){
   try{ codeReader && codeReader.reset(); }catch(e){}
@@ -318,20 +308,14 @@ function stopBarcodeScan(){
 }
 startScan.onclick = startBarcodeScan;
 stopScan.onclick = stopBarcodeScan;
-
-/* Torch + Zoom if supported */
 async function setupTrackControls(){
   try{
-    const stream = video.srcObject;
-    if(!stream) return;
-    const track = stream.getVideoTracks()[0];
-    const caps = track.getCapabilities ? track.getCapabilities() : {};
-    // Torch
+    const stream = video.srcObject; if(!stream) return;
+    const track = stream.getVideoTracks()[0]; const caps = track.getCapabilities ? track.getCapabilities() : {};
     if(caps.torch){
       torch.style.display='inline-block';
       let on=false; torch.onclick = async ()=>{ on=!on; try{ await track.applyConstraints({ advanced:[{ torch:on }] }); }catch(e){} torch.textContent = on?'Flashlight (ON)':'Flashlight'; };
     }else{ torch.style.display='none'; }
-    // Zoom
     if(caps.zoom){
       zoomWrap.style.display='inline-flex';
       zoom.min = caps.zoom.min || 1; zoom.max = caps.zoom.max || 5; zoom.step = caps.zoom.step || 0.1; zoom.value = caps.zoom.min || 1;
@@ -340,27 +324,29 @@ async function setupTrackControls(){
   }catch(e){}
 }
 
-/* ---------- Auto-fill from VIN ---------- */
+/* Auto-fill */
+function yearFromCode(c){ const map = {A:2010,B:2011,C:2012,D:2013,E:2014,F:2015,G:2016,H:2017,J:2018,K:2019,L:2020,M:2021,N:2022,P:2023,R:2024,S:2025,T:2026,V:2027,W:2028,X:2029,Y:2030,1:2031,2:2032,3:2033,4:2034,5:2035,6:2036,7:2037,8:2038,9:2039}; return map[c]||''; }
+function modelFromTeslaChar(c){ const m = { 'S':'Model S', '3':'Model 3', 'X':'Model X', 'Y':'Model Y', 'R':'Roadster', 'C':'Cybertruck' }; return m[c]||''; }
+function isTeslaWMI(w){ return ['5YJ','7SA','LRW','XP7'].includes(w); }
+function decodeVIN(v){
+  v = (v||'').toUpperCase(); if(v.length!==17) return {};
+  const wmi = v.slice(0,3), year = yearFromCode(v[9])||'', modelChar = v[3], model = modelFromTeslaChar(modelChar);
+  const make = isTeslaWMI(wmi) ? 'Tesla' : '';
+  return { make, year, model };
+}
 function autoFillFromVIN(v){
   const d = decodeVIN(v);
   if(d.year){ year.value = d.year; }
-  // Always set Tesla if WMI recognized
   if(d.make==='Tesla'){
-    // Set model drop-down if known
-    if(d.model){
-      model.value = d.model;
-    }else{
-      // Try inference by 4th char fallback
-      const mc = v[3]; const guess = modelFromTeslaChar(mc); if(guess) model.value = guess;
-    }
+    if(d.model){ model.value = d.model; }
+    else { const mc = v[3]; const guess = modelFromTeslaChar(mc); if(guess) model.value = guess; }
   }
   vinMsg.textContent = 'Auto-filled from VIN' + (d.year?` • ${d.year}`:'') + (d.model?` • ${d.model}`:'');
   vinMsg.className = 'note success';
-  // Focus seller inputs next
   miles.focus();
 }
 
-/* ---------- Summary + actions ---------- */
+/* Summary + actions */
 function fmt(n){ try { return new Intl.NumberFormat('en-US').format(+n||0); } catch{ return String(n||''); } }
 function buildSummary(){
   const f = id=>document.getElementById(id).value.trim();
@@ -380,7 +366,6 @@ function buildSummary(){
   ].filter(Boolean);
   return lines.join('\n');
 }
-
 async function copyText(t){
   try{ await navigator.clipboard.writeText(t); }
   catch{
@@ -388,20 +373,14 @@ async function copyText(t){
     ta.select(); document.execCommand('copy'); ta.remove();
   }
 }
-
-/* SMS to your phone (prefilled) */
 sendSms.onclick = ()=>{
   const msg=buildSummary();
   const dest=(destPhone.value||cfg.phone||'').replace(/[^0-9+]/g,'');
   if(!dest){ alert('Set your SMS number in Settings.'); return; }
-  copyText(msg); // helpful so they can paste if needed
-  location.href = `sms:${dest}?&body=${encodeURIComponent(msg)}`;
+  copyText(msg); location.href = `sms:${dest}?&body=${encodeURIComponent(msg)}`;
 };
-
-/* Optional form POST (Formspree) */
 submitForm.onclick = async ()=>{
-  const endpoint = (formEndpoint.value||'').trim();
-  const msgEl = sendMsg;
+  const endpoint = (formEndpoint.value||'').trim(); const msgEl = sendMsg;
   if(!endpoint){ msgEl.textContent='No endpoint set. Add a Formspree endpoint in Settings, or use Text this info.'; return; }
   const payload = {
     vin: vin.value.trim(), year: year.value.trim(), model: model.value.trim(),
@@ -416,8 +395,6 @@ submitForm.onclick = async ()=>{
     else{ msgEl.textContent='Submit failed. Try SMS instead.'; msgEl.className='note error'; }
   }catch(e){ msgEl.textContent='Network error. Try SMS instead.'; msgEl.className='note error'; }
 };
-
-/* Copy summary (manual) */
 copySummary.onclick = async ()=>{ await copyText(buildSummary()); sendMsg.textContent='Summary copied.'; setTimeout(()=>sendMsg.textContent='',1500); };
 </script>
 </body>
