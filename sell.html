@@ -4,12 +4,17 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Sell Your Tesla</title>
+
+<!-- OCR + Barcode libs (UMD, no build tools needed) -->
 <link rel="preconnect" href="https://unpkg.com">
-<script src="https://unpkg.com/quagga@0.12.1/dist/quagga.min.js"></script>
+<script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
+<script src="https://unpkg.com/@zxing/library@latest"></script>
+<script src="https://unpkg.com/@zxing/browser@latest"></script>
+
 <style>
 :root{
   --bg:#f6f7fb; --card:#fff; --text:#0f172a; --muted:#475569; --line:#e2e8f0;
-  --accent:#0ea5e9; --danger:#ef4444; --cta:#ef233c; --ctaText:#fff;
+  --accent:#0ea5e9; --danger:#ef4444; --ok:#16a34a;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
@@ -31,25 +36,22 @@ button.primary{background:var(--accent);color:#fff;border-color:transparent;font
 button.warn{border-color:var(--danger);color:#ef4444}
 .badge{display:inline-block;background:#e2e8f0;color:#334155;border-radius:999px;padding:2px 8px;font-size:12px}
 .note{font-size:12px;color:#475569}
-.success{color:#16a34a}
-.error{color:#ef4444}
+.success{color:var(--ok)}
+.error{color:var(--danger)}
 
-/* Scanner */
+/* Scanner UI */
 #scanner{position:relative;background:#000;border-radius:12px;overflow:hidden;display:none;margin-top:8px}
 #scanner video{width:100%;height:auto;display:block}
+#overlay{position:absolute;inset:0;pointer-events:none;border:2px dashed rgba(255,255,255,.4);border-radius:12px;clip-path:inset(18% 18% 18% 18% round 12px)}
 .scan-controls{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
 .scan-controls button{height:36px}
 #zoomWrap{display:none;align-items:center;gap:6px}
 #zoom{width:160px}
 
-/* Details collapsible */
+/* Collapsible "More details" */
 details>summary{cursor:pointer;list-style:none;padding:10px;border:1px dashed var(--line);border-radius:10px;background:#fafafa}
 details>summary::marker, details>summary::-webkit-details-marker{display:none}
 details[open]>summary{background:#eef6ff;border-color:#cfe4ff}
-
-/* CTA on this page */
-.ctaTop{margin-top:8px}
-.ctaTop .pill{display:block;width:100%;text-align:center;background:var(--cta);color:var(--ctaText);font-weight:800;border-radius:14px;height:52px;line-height:52px;border:none}
 </style>
 </head>
 <body>
@@ -63,11 +65,6 @@ details[open]>summary{background:#eef6ff;border-color:#cfe4ff}
 </header>
 
 <main class="wrap">
-
-  <!-- Quick CTA (big, centered) -->
-  <div class="ctaTop">
-    <button class="pill" id="jumpToForm" type="button">Get a Cash Offer</button>
-  </div>
 
   <!-- Settings (local only) -->
   <div class="card">
@@ -87,15 +84,14 @@ details[open]>summary{background:#eef6ff;border-color:#cfe4ff}
         <button id="saveCfg">Save</button>
         <small id="cfgMsg" class="muted"></small>
       </div>
-      <div class="note">If you add a Formspree endpoint, submissions will also POST there (SMS still opens for easy photo replies).</div>
+      <div class="note">With a Formspree endpoint, submissions also POST there. SMS stays for quick photo replies.</div>
     </div>
   </div>
 
-  <!-- Short form -->
+  <!-- Short form + universal VIN scanner -->
   <div class="card" id="formCard">
-    <div class="hd"><b>Vehicle (short form)</b><span class="badge">VIN scan + validation</span></div>
+    <div class="hd"><b>Vehicle</b><span class="badge">Scan printed VIN, QR/Barcode, or type</span></div>
     <div class="bd">
-      <!-- VIN row -->
       <div class="row">
         <div>
           <label>VIN (17 chars)</label>
@@ -105,19 +101,24 @@ details[open]>summary{background:#eef6ff;border-color:#cfe4ff}
         <div>
           <label>&nbsp;</label>
           <div class="scan-controls">
-            <button id="scan" type="button">Start scan</button>
-            <button id="stop" type="button">Stop</button>
-            <button id="torch" type="button">Flashlight</button>
-            <label style="display:none"><input id="torchChk" type="checkbox"> Torch</label>
+            <button id="takePhoto" type="button">Take VIN photo (OCR)</button>
+            <button id="pickPhoto" type="button">Choose VIN photo</button>
           </div>
           <div class="scan-controls">
-            <input id="photoPick" type="file" accept="image/*" capture="environment" style="display:none">
-            <button id="scanPhoto" type="button">Scan from photo</button>
+            <button id="startScan" type="button">Scan barcode / QR / PDF417</button>
+            <button id="stopScan" type="button">Stop</button>
+            <button id="torch" type="button" style="display:none">Flashlight</button>
             <span id="zoomWrap"><span class="note">Zoom</span> <input id="zoom" type="range" min="1" max="1" step="0.1"></span>
           </div>
+          <input id="fileCamera" type="file" accept="image/*" capture="environment" style="display:none">
+          <input id="filePicker"  type="file" accept="image/*" style="display:none">
         </div>
       </div>
-      <div id="scanner"><video muted playsinline></video></div>
+
+      <div id="scanner">
+        <video id="video" muted playsinline></video>
+        <div id="overlay"></div>
+      </div>
 
       <!-- Essentials -->
       <div class="row" style="margin-top:10px">
@@ -187,169 +188,195 @@ const cfg = {
   get endpoint(){ return localStorage.getItem('sell_endpoint') || ''; },
   set endpoint(v){ localStorage.setItem('sell_endpoint', v || ''); }
 };
-document.getElementById('destPhone').value = cfg.phone;
-document.getElementById('formEndpoint').value = cfg.endpoint;
-document.getElementById('saveCfg').onclick = ()=>{
-  cfg.phone = document.getElementById('destPhone').value.trim();
-  cfg.endpoint = document.getElementById('formEndpoint').value.trim();
-  document.getElementById('cfgMsg').textContent = 'Saved.';
-  setTimeout(()=>document.getElementById('cfgMsg').textContent='', 1500);
+destPhone.value = cfg.phone; formEndpoint.value = cfg.endpoint;
+saveCfg.onclick = ()=>{
+  cfg.phone = destPhone.value.trim();
+  cfg.endpoint = formEndpoint.value.trim();
+  cfgMsg.textContent = 'Saved.'; setTimeout(()=>cfgMsg.textContent='', 1500);
 };
-document.getElementById('jumpToForm').onclick = ()=>document.getElementById('formCard').scrollIntoView({behavior:'smooth'});
 
-/* ---------- VIN tools ---------- */
+/* ---------- VIN helpers ---------- */
 const translit = {A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9,
   0:0,1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8,9:9};
 const weights = [8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2];
 function cleanVIN(v){ return (v||'').toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g,''); } // exclude I,O,Q
 function vinCheckDigit(v){
-  v = cleanVIN(v);
-  if(v.length!==17) return false;
-  let sum=0;
-  for(let i=0;i<17;i++){ const ch=v[i]; const val=translit[ch]; if(val===undefined) return false; sum += val * weights[i]; }
-  const rem = sum % 11; const check = rem===10 ? 'X' : String(rem);
-  return v[8]===check;
+  v = cleanVIN(v); if(v.length!==17) return false;
+  let sum=0; for(let i=0;i<17;i++){ const ch=v[i]; const val=translit[ch]; if(val===undefined) return false; sum += val * weights[i]; }
+  const rem = sum % 11; const check = rem===10 ? 'X' : String(rem); return v[8]===check;
 }
-function vinStatus(v){
-  v=cleanVIN(v);
-  if(!v) return '';
-  if(v.length<17) return 'Enter full 17-character VIN.';
-  return vinCheckDigit(v) ? 'VIN looks valid ✔' : 'VIN format/check digit mismatch.';
+function yearFromCode(c){
+  const map = {A:2010,B:2011,C:2012,D:2013,E:2014,F:2015,G:2016,H:2017,J:2018,K:2019,L:2020,M:2021,N:2022,P:2023,R:2024,S:2025,T:2026,V:2027,W:2028,X:2029,Y:2030,1:2031,2:2032,3:2033,4:2034,5:2035,6:2036,7:2037,8:2038,9:2039};
+  return map[c]||'';
 }
-document.getElementById('vin').addEventListener('input', e=>{
-  const v = cleanVIN(e.target.value);
-  e.target.value = v;
+function modelFromTeslaChar(c){
+  const m = { 'S':'Model S', '3':'Model 3', 'X':'Model X', 'Y':'Model Y', 'R':'Roadster', 'C':'Cybertruck' };
+  return m[c]||'';
+}
+function isTeslaWMI(w){ return ['5YJ','7SA','LRW','XP7'].includes(w); } // common Tesla WMIs
+function decodeVIN(v){
+  v = cleanVIN(v); if(v.length!==17) return {};
+  const wmi = v.slice(0,3), year = yearFromCode(v[9])||'', modelChar = v[3], model = modelFromTeslaChar(modelChar);
+  const make = isTeslaWMI(wmi) ? 'Tesla' : '';
+  return { make, year, model };
+}
+
+/* Live VIN validity message */
+vin.addEventListener('input', e=>{
+  const v = cleanVIN(e.target.value); e.target.value = v;
   const ok = v.length===17 && vinCheckDigit(v);
-  const m = document.getElementById('vinMsg');
-  m.textContent = vinStatus(v);
-  m.className = 'note ' + (ok?'success':'error');
+  vinMsg.textContent = !v ? '' : (ok ? 'VIN looks valid ✔' : 'VIN format/check digit mismatch.');
+  vinMsg.className = 'note ' + (ok ? 'success' : 'error');
 });
 
-/* ---------- Quagga live scan with better defaults ---------- */
-let scanning=false;
-const scanner = document.getElementById('scanner');
-const zoomWrap = document.getElementById('zoomWrap');
-const zoom = document.getElementById('zoom');
-
-document.getElementById('scan').onclick = ()=>{
-  if(scanning) return;
-  scanning=true; scanner.style.display='block';
-  Quagga.init({
-    inputStream:{
-      name:"Live", type:"LiveStream", target:scanner,
-      constraints:{
-        facingMode:"environment",
-        width:{ideal:1280}, aspectRatio:{ideal:1.777}
-      },
-      area:{ top:"20%", right:"20%", left:"20%", bottom:"20%" } // center box
-    },
-    locator:{ patchSize:"medium", halfSample:true },
-    decoder:{ readers:["code_39_reader","code_128_reader"] },
-    locate:true
-  }, err=>{
-    if(err){ scanning=false; scanner.style.display='none'; alert('Camera error: '+err); return; }
-    Quagga.start();
-    setupCameraControls();
+/* ---------- OCR (printed VIN) ---------- */
+function downscaleToDataURL(imgSrc, maxW=1600, maxH=1600){
+  return new Promise(res=>{
+    const img=new Image(); img.onload=()=>{
+      let {width:w,height:h}=img;
+      const r=Math.min(maxW/w, maxH/h, 1); const cw=Math.round(w*r), ch=Math.round(h*r);
+      const c=document.createElement('canvas'); c.width=cw; c.height=ch;
+      const ctx=c.getContext('2d'); ctx.drawImage(img,0,0,cw,ch);
+      res(c.toDataURL('image/jpeg',0.92));
+    }; img.src=imgSrc;
   });
-  Quagga.onDetected(onDetected);
-};
+}
+async function ocrVINFromFile(file){
+  return new Promise((resolve,reject)=>{
+    const rd=new FileReader();
+    rd.onload=async ()=>{
+      try{
+        const dataUrl = await downscaleToDataURL(rd.result);
+        const worker = Tesseract.createWorker();
+        await worker.load();
+        await worker.loadLanguage('eng');
+        await worker.initialize('eng');
+        // Limit character set to VIN chars (no I,O,Q; allow 0-9 A-H J-N P R-Z)
+        await worker.setParameters({ tessedit_char_whitelist:'ABCDEFGHJKLMNPRSTUVWXYZ0123456789' });
+        const { data } = await worker.recognize(dataUrl);
+        await worker.terminate();
+        const text=(data && data.text || '').toUpperCase();
+        const candidates = (text.match(/[A-HJ-NPR-Z0-9]{17}/g)||[]).filter(v=>vinCheckDigit(v));
+        // If none valid by check digit, fall back to the first 17-char candidate
+        const vin = candidates[0] || ((text.match(/[A-HJ-NPR-Z0-9]{17}/)||[])[0]||'');
+        resolve(vin);
+      }catch(err){ reject(err); }
+    };
+    rd.onerror=reject; rd.readAsDataURL(file);
+  });
+}
+takePhoto.onclick = ()=> fileCamera.click();
+pickPhoto.onclick = ()=> filePicker.click();
+fileCamera.onchange = ()=> handleVINPhoto(fileCamera.files && fileCamera.files[0]);
+filePicker.onchange = ()=> handleVINPhoto(filePicker.files && filePicker.files[0]);
 
-document.getElementById('stop').onclick = stopScan;
-
-function onDetected(res){
-  const code = (res && res.codeResult && res.codeResult.code) || '';
-  const vin = cleanVIN(code);
-  if(vin.length===17 && vinCheckDigit(vin)){
-    document.getElementById('vin').value = vin;
-    const m=document.getElementById('vinMsg'); m.textContent='VIN looks valid ✔'; m.className='note success';
-    stopScan();
+async function handleVINPhoto(file){
+  if(!file) return;
+  vinMsg.textContent='Reading VIN from photo…'; vinMsg.className='note';
+  try{
+    const v = await ocrVINFromFile(file);
+    if(v && v.length===17){
+      vin.value = v; vin.dispatchEvent(new Event('input'));
+      autoFillFromVIN(v);
+    }else{
+      vinMsg.textContent='Could not find a clear 17-character VIN in this photo.'; vinMsg.className='note error';
+    }
+  }catch(e){
+    vinMsg.textContent='OCR error. Try a clearer photo of the VIN plate.'; vinMsg.className='note error';
   }
 }
 
-function stopScan(){
-  if(!scanning) return;
-  Quagga.stop(); Quagga.offDetected(onDetected); scanner.style.display='none'; scanning=false;
-}
-
-/* Torch + Zoom (when supported) */
-async function setupCameraControls(){
+/* ---------- Barcode/QR/PDF417 scan ---------- */
+let codeReader=null, scanning=false;
+async function startBarcodeScan(){
+  if(scanning) return; scanning=true; scanner.style.display='block';
   try{
-    const track = Quagga.CameraAccess && Quagga.CameraAccess.getActiveTrack ? Quagga.CameraAccess.getActiveTrack() : null;
-    if(!track) return;
+    if(!codeReader){ codeReader = new ZXingBrowser.BrowserMultiFormatReader(); }
+    await codeReader.decodeFromVideoDevice(null, 'video', (result, err)=>{
+      if(result && result.text){
+        const raw = result.text.toUpperCase();
+        // Try to extract a VIN from the payload (handles QR/PDF417 contents too)
+        const m = raw.match(/[A-HJ-NPR-Z0-9]{17}/);
+        const v = m ? m[0] : '';
+        if(v){
+          vin.value = v; vin.dispatchEvent(new Event('input'));
+          autoFillFromVIN(v);
+          stopBarcodeScan();
+        }
+      }
+    });
+    setupTrackControls();
+  }catch(e){
+    alert('Camera error: '+ (e && e.message || e));
+    stopBarcodeScan();
+  }
+}
+function stopBarcodeScan(){
+  try{ codeReader && codeReader.reset(); }catch(e){}
+  const stream = video.srcObject; if(stream){ stream.getTracks().forEach(t=>t.stop()); video.srcObject=null; }
+  scanner.style.display='none'; scanning=false;
+}
+startScan.onclick = startBarcodeScan;
+stopScan.onclick = stopBarcodeScan;
 
+/* Torch + Zoom if supported */
+async function setupTrackControls(){
+  try{
+    const stream = video.srcObject;
+    if(!stream) return;
+    const track = stream.getVideoTracks()[0];
     const caps = track.getCapabilities ? track.getCapabilities() : {};
     // Torch
-    const torchBtn = document.getElementById('torch');
     if(caps.torch){
-      torchBtn.style.display='inline-block';
-      let on=false;
-      torchBtn.onclick = async ()=>{
-        on=!on;
-        try{ await track.applyConstraints({ advanced:[{ torch:on }] }); }catch(e){}
-        torchBtn.textContent = on ? 'Flashlight (ON)' : 'Flashlight';
-      };
-    }else{
-      torchBtn.style.display='none';
-    }
-
+      torch.style.display='inline-block';
+      let on=false; torch.onclick = async ()=>{ on=!on; try{ await track.applyConstraints({ advanced:[{ torch:on }] }); }catch(e){} torch.textContent = on?'Flashlight (ON)':'Flashlight'; };
+    }else{ torch.style.display='none'; }
     // Zoom
     if(caps.zoom){
       zoomWrap.style.display='inline-flex';
-      zoom.min = caps.zoom.min || 1;
-      zoom.max = caps.zoom.max || 5;
-      zoom.step = caps.zoom.step || 0.1;
-      zoom.value = caps.zoom.min || 1;
+      zoom.min = caps.zoom.min || 1; zoom.max = caps.zoom.max || 5; zoom.step = caps.zoom.step || 0.1; zoom.value = caps.zoom.min || 1;
       zoom.oninput = async ()=>{ try{ await track.applyConstraints({ advanced:[{ zoom:+zoom.value }] }); }catch(e){} };
-    }else{
-      zoomWrap.style.display='none';
-    }
+    }else{ zoomWrap.style.display='none'; }
   }catch(e){}
 }
 
-/* ---------- Scan from photo ---------- */
-document.getElementById('scanPhoto').onclick = ()=>document.getElementById('photoPick').click();
-document.getElementById('photoPick').addEventListener('change', async (e)=>{
-  const file = e.target.files && e.target.files[0]; if(!file) return;
-  const reader = new FileReader();
-  reader.onload = ()=>{
-    Quagga.decodeSingle({
-      src: reader.result,
-      numOfWorkers: 0,
-      inputStream:{ size: 800 },
-      locator:{ patchSize:"medium", halfSample:true },
-      decoder:{ readers:["code_39_reader","code_128_reader"] },
-      locate:true
-    }, (res)=>{
-      const code = res && res.codeResult && res.codeResult.code || '';
-      const vin = cleanVIN(code);
-      if(vin.length===17 && vinCheckDigit(vin)){
-        document.getElementById('vin').value = vin;
-        const m=document.getElementById('vinMsg'); m.textContent='VIN looks valid ✔'; m.className='note success';
-      }else{
-        alert('Could not read a valid VIN from this photo. Try a clearer shot of the barcode label.');
-      }
-    });
-  };
-  reader.readAsDataURL(file);
-});
+/* ---------- Auto-fill from VIN ---------- */
+function autoFillFromVIN(v){
+  const d = decodeVIN(v);
+  if(d.year){ year.value = d.year; }
+  // Always set Tesla if WMI recognized
+  if(d.make==='Tesla'){
+    // Set model drop-down if known
+    if(d.model){
+      model.value = d.model;
+    }else{
+      // Try inference by 4th char fallback
+      const mc = v[3]; const guess = modelFromTeslaChar(mc); if(guess) model.value = guess;
+    }
+  }
+  vinMsg.textContent = 'Auto-filled from VIN' + (d.year?` • ${d.year}`:'') + (d.model?` • ${d.model}`:'');
+  vinMsg.className = 'note success';
+  // Focus seller inputs next
+  miles.focus();
+}
 
-/* ---------- summary / actions ---------- */
+/* ---------- Summary + actions ---------- */
 function fmt(n){ try { return new Intl.NumberFormat('en-US').format(+n||0); } catch{ return String(n||''); } }
 function buildSummary(){
   const f = id=>document.getElementById(id).value.trim();
-  const vin=f('vin'), year=f('year'), model=f('model'), trim=f('trim'), miles=f('miles'), price=f('price');
-  const zip=f('zip'), cond=f('condition'), title=f('title');
-  const name=f('name'), phone=f('phone'), email=f('email'), notes=f('notes');
-  const validVIN = vin && vin.length===17 && vinCheckDigit(vin);
+  const vinTxt=f('vin'), yearTxt=f('year'), modelTxt=f('model'), trimTxt=f('trim'), milesTxt=f('miles'), priceTxt=f('price');
+  const zipTxt=f('zip'), condTxt=f('condition'), titleTxt=f('title');
+  const nameTxt=f('name'), phoneTxt=f('phone'), emailTxt=f('email'), notesTxt=f('notes');
+  const validVIN = vinTxt && vinTxt.length===17 && vinCheckDigit(vinTxt);
   const header = `New SELL lead${validVIN?' (VIN ✔)':''}`;
   const lines=[
     header,
-    `VIN: ${vin||'-'}`,
-    `Year/Model: ${[year,model].filter(Boolean).join(' ')||'-'}`,
-    `Mileage: ${miles?fmt(miles)+' mi':'-'} | ZIP: ${zip||'-'}`,
-    (trim||price||cond||title)? `Trim: ${trim||'-'} | Asking: ${price?('$'+fmt(price)):'-'} | Cond: ${cond||'-'} | Title: ${title||'-'}` : null,
-    `Name: ${name||'-'} | Phone: ${phone||'-'}${email?(' | Email: '+email):''}`,
-    notes?`Notes: ${notes}`:null
+    `VIN: ${vinTxt||'-'}`,
+    `Year/Model: ${[yearTxt,modelTxt].filter(Boolean).join(' ')||'-'}`,
+    `Mileage: ${milesTxt?fmt(milesTxt)+' mi':'-'} | ZIP: ${zipTxt||'-'}`,
+    (trimTxt||priceTxt||condTxt||titleTxt)? `Trim: ${trimTxt||'-'} | Asking: ${priceTxt?('$'+fmt(priceTxt)):'-'} | Cond: ${condTxt||'-'} | Title: ${titleTxt||'-'}` : null,
+    `Name: ${nameTxt||'-'} | Phone: ${phoneTxt||'-'}${emailTxt?(' | Email: '+emailTxt):''}`,
+    notesTxt?`Notes: ${notesTxt}`:null
   ].filter(Boolean);
   return lines.join('\n');
 }
@@ -362,54 +389,36 @@ async function copyText(t){
   }
 }
 
-/* SMS: opens seller's messenger to your number with prefilled text */
-document.getElementById('sendSms').onclick = ()=>{
+/* SMS to your phone (prefilled) */
+sendSms.onclick = ()=>{
   const msg=buildSummary();
-  const dest=(document.getElementById('destPhone').value||cfg.phone||'').replace(/[^0-9+]/g,'');
+  const dest=(destPhone.value||cfg.phone||'').replace(/[^0-9+]/g,'');
   if(!dest){ alert('Set your SMS number in Settings.'); return; }
   copyText(msg); // helpful so they can paste if needed
   location.href = `sms:${dest}?&body=${encodeURIComponent(msg)}`;
 };
 
-/* Optional: POST to Formspree endpoint if configured */
-document.getElementById('submitForm').onclick = async ()=>{
-  const endpoint = (document.getElementById('formEndpoint').value||'').trim();
-  const msgEl = document.getElementById('sendMsg');
+/* Optional form POST (Formspree) */
+submitForm.onclick = async ()=>{
+  const endpoint = (formEndpoint.value||'').trim();
+  const msgEl = sendMsg;
   if(!endpoint){ msgEl.textContent='No endpoint set. Add a Formspree endpoint in Settings, or use Text this info.'; return; }
   const payload = {
-    vin: document.getElementById('vin').value.trim(),
-    year: document.getElementById('year').value.trim(),
-    model: document.getElementById('model').value.trim(),
-    trim: document.getElementById('trim').value.trim(),
-    miles: document.getElementById('miles').value.trim(),
-    price: document.getElementById('price').value.trim(),
-    zip: document.getElementById('zip').value.trim(),
-    condition: document.getElementById('condition').value.trim(),
-    title: document.getElementById('title').value.trim(),
-    name: document.getElementById('name').value.trim(),
-    phone: document.getElementById('phone').value.trim(),
-    email: document.getElementById('email').value.trim(),
-    notes: document.getElementById('notes').value.trim(),
-    summary: buildSummary()
+    vin: vin.value.trim(), year: year.value.trim(), model: model.value.trim(),
+    trim: trim.value.trim(), miles: miles.value.trim(), price: price.value.trim(),
+    zip: zip.value.trim(), condition: condition.value.trim(), title: title.value.trim(),
+    name: name.value.trim(), phone: phone.value.trim(), email: email.value.trim(),
+    notes: notes.value.trim(), summary: buildSummary()
   };
   try{
-    const r = await fetch(endpoint, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(payload)
-    });
+    const r = await fetch(endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     if(r.ok){ msgEl.textContent='Submitted. We\'ll contact you shortly.'; msgEl.className='note success'; }
     else{ msgEl.textContent='Submit failed. Try SMS instead.'; msgEl.className='note error'; }
-  }catch(e){
-    msgEl.textContent='Network error. Try SMS instead.'; msgEl.className='note error';
-  }
+  }catch(e){ msgEl.textContent='Network error. Try SMS instead.'; msgEl.className='note error'; }
 };
 
-/* Copy summary (for manual paste into text/email) */
-document.getElementById('copySummary').onclick = async ()=>{
-  await copyText(buildSummary());
-  const el=document.getElementById('sendMsg'); el.textContent='Summary copied.'; setTimeout(()=>el.textContent='',1500);
-};
+/* Copy summary (manual) */
+copySummary.onclick = async ()=>{ await copyText(buildSummary()); sendMsg.textContent='Summary copied.'; setTimeout(()=>sendMsg.textContent='',1500); };
 </script>
 </body>
 </html>
