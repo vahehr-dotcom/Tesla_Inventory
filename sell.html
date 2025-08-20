@@ -5,17 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Sell Your Car — VIN Scan</title>
 
-<!-- OCR + Barcode libs (no server needed) -->
+<!-- One-button scanner: ZXing (barcodes/QR/PDF417) + Tesseract (OCR) -->
 <link rel="preconnect" href="https://unpkg.com">
 <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
 <script src="https://unpkg.com/@zxing/library@latest"></script>
 <script src="https://unpkg.com/@zxing/browser@latest"></script>
 
 <style>
-:root{
-  --bg:#f6f7fb; --card:#fff; --text:#0f172a; --muted:#475569; --line:#e2e8f0;
-  --accent:#0ea5e9; --ok:#16a34a; --danger:#ef4444;
-}
+:root{ --bg:#f6f7fb; --card:#fff; --text:#0f172a; --muted:#475569; --line:#e2e8f0; --accent:#0ea5e9; --ok:#16a34a; --danger:#ef4444;}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
 header{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line)}
@@ -31,6 +28,8 @@ button{height:40px;padding:0 14px;border:1px solid var(--line);background:#fff;b
 button.primary{background:var(--accent);color:#fff;border-color:transparent;font-weight:700}
 .note{font-size:12px;color:#475569}
 .success{color:var(--ok)} .error{color:var(--danger)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
 
 /* Notice + footer */
 .notice{background:#f8fafc;border-bottom:1px solid var(--line);color:#475569}
@@ -39,17 +38,19 @@ button.primary{background:var(--accent);color:#fff;border-color:transparent;font
 .legal .wrap{padding:16px 12px;font-size:12px;line-height:1.5}
 .legal a{color:#3b82f6;text-decoration:none} .legal a:hover{text-decoration:underline}
 
-/* Scanner UI */
-#scanner{position:relative;background:#000;border-radius:12px;overflow:hidden;display:none;margin-top:8px}
-#scanner video{width:100%;height:auto;display:block}
-#overlay{position:absolute;inset:0;pointer-events:none;border:2px dashed rgba(255,255,255,.4);border-radius:12px;clip-path:inset(18% 18% 18% 18% round 12px)}
-.scan-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
-.scan-row button{height:36px}
-#zoomWrap{display:none;align-items:center;gap:6px}
-#zoom{width:160px}
-
-.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.actions{display:flex;gap:8px;flex-wrap:wrap}
+/* Scanner overlay */
+#scanOverlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;padding:12px}
+#scanOverlay.open{display:flex}
+.scanBox{width:100%;max-width:760px;background:#0b0b0b;color:#fff;border-radius:16px;overflow:hidden;box-shadow:0 6px 30px rgba(0,0,0,.45)}
+.scanHd{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#111;border-bottom:1px solid rgba(255,255,255,.08)}
+.scanBody{padding:10px}
+.videoWrap{position:relative;border-radius:12px;overflow:hidden;background:#000}
+.videoWrap video{width:100%;height:auto;display:block}
+.target{position:absolute;inset:10%;border:2px dashed rgba(255,255,255,.45);border-radius:12px;pointer-events:none}
+.scanBtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.small{font-size:12px;opacity:.85}
+a.link{color:#60a5fa;text-decoration:none}
+.hidden{display:none}
 </style>
 </head>
 <body>
@@ -70,32 +71,16 @@ button.primary{background:var(--accent);color:#fff;border-color:transparent;font
 
 <main class="wrap">
 
-  <!-- STEP 1: VIN only -->
+  <!-- STEP 1: VIN only (single button) -->
   <div class="card" id="step1">
     <div class="hd"><b>Step 1 — Scan or enter your VIN</b><span class="note">17 characters (no I, O, Q)</span></div>
     <div class="bd">
       <label>VIN</label>
       <input id="vin" maxlength="17" placeholder="5YJ...">
       <div id="vinMsg" class="note" style="margin-top:6px"></div>
-
-      <div class="scan-row">
-        <button id="takePhoto" type="button">Take VIN photo (OCR)</button>
-        <button id="pickPhoto" type="button">Choose VIN photo</button>
+      <div class="actions" style="margin-top:8px">
+        <button id="scanBtn" class="primary">Scan VIN</button>
       </div>
-      <div class="scan-row">
-        <button id="startScan" type="button">Scan barcode / QR / PDF417</button>
-        <button id="stopScan" type="button">Stop</button>
-        <button id="torch" type="button" style="display:none">Flashlight</button>
-        <span id="zoomWrap"><span class="note">Zoom</span> <input id="zoom" type="range" min="1" max="1" step="0.1"></span>
-      </div>
-
-      <div id="scanner">
-        <video id="video" muted playsinline></video>
-        <div id="overlay"></div>
-      </div>
-
-      <input id="fileCamera" type="file" accept="image/*" capture="environment" style="display:none">
-      <input id="filePicker"  type="file" accept="image/*" style="display:none">
     </div>
   </div>
 
@@ -104,12 +89,8 @@ button.primary{background:var(--accent);color:#fff;border-color:transparent;font
     <div class="hd"><b>Step 2 — Confirm vehicle & add mileage/condition</b><span id="decodeNote" class="note"></span></div>
     <div class="bd">
       <div class="row">
-        <div>
-          <label>Year</label>
-          <input id="year" type="number" min="2008" max="2100" placeholder="2020">
-        </div>
-        <div>
-          <label>Model</label>
+        <div><label>Year</label><input id="year" type="number" min="2008" max="2100" placeholder="2020"></div>
+        <div><label>Model</label>
           <select id="model">
             <option value="">Select…</option>
             <option>Model 3</option><option>Model Y</option><option>Model S</option><option>Model X</option>
@@ -117,21 +98,15 @@ button.primary{background:var(--accent);color:#fff;border-color:transparent;font
           </select>
         </div>
       </div>
-
       <div class="row" style="margin-top:10px">
-        <div>
-          <label>Mileage</label>
-          <input id="miles" type="number" min="0" step="500" placeholder="66000">
-        </div>
-        <div>
-          <label>Overall condition</label>
+        <div><label>Mileage</label><input id="miles" type="number" min="0" step="500" placeholder="66000"></div>
+        <div><label>Overall condition</label>
           <select id="condition">
             <option value="">Select…</option>
             <option>Excellent</option><option>Good</option><option>Fair</option><option>Needs work</option>
           </select>
         </div>
       </div>
-
       <div class="actions" style="margin-top:12px">
         <button id="nextContact" class="primary">Next</button>
       </div>
@@ -146,10 +121,7 @@ button.primary{background:var(--accent);color:#fff;border-color:transparent;font
         <div><label>Your name</label><input id="name" placeholder="First Last"></div>
         <div><label>Your phone</label><input id="phone" placeholder="(555) 555-5555"></div>
       </div>
-      <div style="margin-top:10px">
-        <label>Email (optional)</label><input id="email" type="email" placeholder="you@example.com">
-      </div>
-
+      <div style="margin-top:10px"><label>Email (optional)</label><input id="email" type="email" placeholder="you@example.com"></div>
       <div class="actions" style="margin-top:12px">
         <button id="sendSms" class="primary">Text this info</button>
         <button id="copySummary">Copy summary</button>
@@ -159,6 +131,32 @@ button.primary{background:var(--accent);color:#fff;border-color:transparent;font
   </div>
 
 </main>
+
+<!-- Scanner overlay (single entry point) -->
+<div id="scanOverlay" role="dialog" aria-modal="true" aria-label="VIN scanner">
+  <div class="scanBox">
+    <div class="scanHd">
+      <div>Scan VIN</div>
+      <div class="small" id="scanHint">Looking for barcode…</div>
+      <button id="closeScan">Close</button>
+    </div>
+    <div class="scanBody">
+      <div class="videoWrap">
+        <video id="video" muted playsinline></video>
+        <div class="target"></div>
+      </div>
+      <div class="scanBtns">
+        <button id="torch" class="hidden">Flashlight</button>
+        <span id="zoomWrap" class="hidden small">Zoom <input id="zoom" type="range" min="1" max="1" step="0.1" /></span>
+        <button id="captureOCR">Use Photo (OCR)</button>
+        <label class="small"><input id="autoOCR" type="checkbox" checked /> Auto-try OCR if no barcode</label>
+        <input id="filePicker" type="file" accept="image/*" class="hidden">
+        <a href="#" id="uploadLink" class="link small">Upload photo</a>
+      </div>
+      <div id="scanMsg" class="small" style="margin-top:6px;opacity:.9"></div>
+    </div>
+  </div>
+</div>
 
 <footer class="legal">
   <div class="wrap">
@@ -171,108 +169,71 @@ button.primary{background:var(--accent);color:#fff;border-color:transparent;font
 document.getElementById('yr').textContent = new Date().getFullYear();
 
 /* ---------- VIN helpers ---------- */
-const translit = {A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9,0:0,1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8,9:9};
-const weights = [8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2];
-function cleanVIN(v){ return (v||'').toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g,''); } // exclude I,O,Q
-function vinCheckDigit(v){
-  v = cleanVIN(v); if(v.length!==17) return false;
-  let sum=0; for(let i=0;i<17;i++){ const ch=v[i]; const val=translit[ch]; if(val===undefined) return false; sum += val * weights[i]; }
-  const rem=sum%11; const check= rem===10 ? 'X' : String(rem); return v[8]===check;
-}
-function yearFromCode(c){ const map={A:2010,B:2011,C:2012,D:2013,E:2014,F:2015,G:2016,H:2017,J:2018,K:2019,L:2020,M:2021,N:2022,P:2023,R:2024,S:2025,T:2026,V:2027,W:2028,X:2029,Y:2030,1:2031,2:2032,3:2033,4:2034,5:2035,6:2036,7:2037,8:2038,9:2039}; return map[c]||''; }
-function modelFromTeslaChar(c){ const m={'S':'Model S','3':'Model 3','X':'Model X','Y':'Model Y','R':'Roadster','C':'Cybertruck'}; return m[c]||''; }
-function isTeslaWMI(w){ return ['5YJ','7SA','LRW','XP7'].includes(w); }
-function decodeVIN(v){
-  v=cleanVIN(v); if(v.length!==17) return {};
-  const wmi=v.slice(0,3), year=yearFromCode(v[9])||'', modelChar=v[3], model=modelFromTeslaChar(modelChar);
-  const make=isTeslaWMI(wmi)?'Tesla':''; return {make,year,model};
-}
+const translit={A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9,0:0,1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8,9:9};
+const weights=[8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2];
+function cleanVIN(v){return (v||'').toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g,'');}
+function vinCheckDigit(v){v=cleanVIN(v);if(v.length!==17)return false;let s=0;for(let i=0;i<17;i++){const ch=v[i];const val=translit[ch];if(val===undefined)return false;s+=val*weights[i]}const r=s%11;const c=(r===10?'X':String(r));return v[8]===c;}
+function yearFromCode(c){const m={A:2010,B:2011,C:2012,D:2013,E:2014,F:2015,G:2016,H:2017,J:2018,K:2019,L:2020,M:2021,N:2022,P:2023,R:2024,S:2025,T:2026,V:2027,W:2028,X:2029,Y:2030,1:2031,2:2032,3:2033,4:2034,5:2035,6:2036,7:2037,8:2038,9:2039};return m[c]||'';}
+function modelFromTeslaChar(c){const m={'S':'Model S','3':'Model 3','X':'Model X','Y':'Model Y','R':'Roadster','C':'Cybertruck'};return m[c]||'';}
+function isTeslaWMI(w){return ['5YJ','7SA','LRW','XP7'].includes(w);}
+function decodeVIN(v){v=cleanVIN(v);if(v.length!==17)return{};const w=v.slice(0,3),y=yearFromCode(v[9])||'',mc=v[3],model=modelFromTeslaChar(mc);const make=isTeslaWMI(w)?'Tesla':'';return {make:make,year:y,model:model};}
 
 /* ---------- Step control ---------- */
-const step1=document.getElementById('step1');
-const step2=document.getElementById('step2');
-const step3=document.getElementById('step3');
+const step1=document.getElementById('step1'), step2=document.getElementById('step2'), step3=document.getElementById('step3');
 const decodeNote=document.getElementById('decodeNote');
-
 const vinEl=document.getElementById('vin'), vinMsg=document.getElementById('vinMsg');
 const yearEl=document.getElementById('year'), modelEl=document.getElementById('model');
 const milesEl=document.getElementById('miles'), conditionEl=document.getElementById('condition');
 
-vinEl.addEventListener('input', e=>{
-  const v = cleanVIN(e.target.value); e.target.value = v;
-  const ok = v.length===17 && vinCheckDigit(v);
-  vinMsg.textContent = !v ? '' : (ok ? 'VIN looks valid ✔' : 'VIN format/check digit mismatch.');
-  vinMsg.className = 'note ' + (ok ? 'success' : 'error');
-  if(ok){ onValidVIN(v); }
+vinEl.addEventListener('input',e=>{
+  const v=cleanVIN(e.target.value); e.target.value=v;
+  const ok=v.length===17 && vinCheckDigit(v);
+  vinMsg.textContent=!v?'':(ok?'VIN looks valid ✔':'VIN format/check digit mismatch.');
+  vinMsg.className='note ' + (ok?'success':'error');
+  if(ok) onValidVIN(v);
 });
-
 function onValidVIN(v){
-  // Fill and reveal Step 2
-  const d = decodeVIN(v);
-  if(d.year) yearEl.value = d.year;
-  if(d.make==='Tesla'){ if(d.model) modelEl.value = d.model; else { const guess=modelFromTeslaChar(v[3]); if(guess) modelEl.value = guess; } }
-  decodeNote.textContent = 'Auto-filled from VIN' + (d.year?` • ${d.year}`:'') + (d.model?` • ${d.model}`:'');
-  step2.hidden = false;
-  // scroll into view
-  step2.scrollIntoView({behavior:'smooth',block:'start'});
+  const d=decodeVIN(v);
+  if(d.year) yearEl.value=d.year;
+  if(d.make==='Tesla'){ if(d.model) modelEl.value=d.model; else { const g=modelFromTeslaChar(v[3]); if(g) modelEl.value=g; } }
+  decodeNote.textContent='Auto-filled from VIN'+(d.year?` • ${d.year}`:'')+(d.model?` • ${d.model}`:'');
+  step2.hidden=false; step2.scrollIntoView({behavior:'smooth',block:'start'});
 }
+document.getElementById('nextContact').onclick=()=>{ step3.hidden=false; step3.scrollIntoView({behavior:'smooth',block:'start'}); };
 
-/* ---------- OCR (printed VIN) ---------- */
-function downscaleToDataURL(imgSrc,maxW=1600,maxH=1600){
-  return new Promise(res=>{
-    const img=new Image(); img.onload=()=>{
-      let {width:w,height:h}=img; const r=Math.min(maxW/w,maxH/h,1);
-      const cw=Math.round(w*r), ch=Math.round(h*r);
-      const c=document.createElement('canvas'); c.width=cw; c.height=ch;
-      c.getContext('2d').drawImage(img,0,0,cw,ch);
-      res(c.toDataURL('image/jpeg',0.92));
-    }; img.src=imgSrc;
-  });
-}
-async function ocrVINFromFile(file){
-  return new Promise((resolve,reject)=>{
-    const rd=new FileReader();
-    rd.onload=async ()=>{
-      try{
-        const dataUrl=await downscaleToDataURL(rd.result);
-        const worker=Tesseract.createWorker();
-        await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng');
-        await worker.setParameters({ tessedit_char_whitelist:'ABCDEFGHJKLMNPRSTUVWXYZ0123456789' });
-        const { data }=await worker.recognize(dataUrl); await worker.terminate();
-        const text=(data && data.text || '').toUpperCase();
-        const candidates=(text.match(/[A-HJ-NPR-Z0-9]{17}/g)||[]).filter(v=>vinCheckDigit(v));
-        const v = candidates[0] || ((text.match(/[A-HJ-NPR-Z0-9]{17}/)||[])[0]||'');
-        resolve(v);
-      }catch(err){ reject(err); }
-    };
-    rd.onerror=reject; rd.readAsDataURL(file);
-  });
-}
-const fileCamera=document.getElementById('fileCamera');
+/* ---------- Unified scanner ---------- */
+const scanOverlay=document.getElementById('scanOverlay');
+const scanBtn=document.getElementById('scanBtn');
+const closeScan=document.getElementById('closeScan');
+const scanHint=document.getElementById('scanHint');
+const scanMsg=document.getElementById('scanMsg');
+const video=document.getElementById('video');
+const torch=document.getElementById('torch');
+const zoomWrap=document.getElementById('zoomWrap');
+const zoom=document.getElementById('zoom');
+const captureOCR=document.getElementById('captureOCR');
+const uploadLink=document.getElementById('uploadLink');
 const filePicker=document.getElementById('filePicker');
-document.getElementById('takePhoto').onclick=()=>fileCamera.click();
-document.getElementById('pickPhoto').onclick=()=>filePicker.click();
-fileCamera.onchange=()=>handleVINPhoto(fileCamera.files && fileCamera.files[0]);
-filePicker.onchange=()=>handleVINPhoto(filePicker.files && filePicker.files[0]);
-async function handleVINPhoto(file){
-  if(!file) return;
-  vinMsg.textContent='Reading VIN from photo…'; vinMsg.className='note';
-  try{
-    const v=await ocrVINFromFile(file);
-    if(v && v.length===17){ vinEl.value=v; vinEl.dispatchEvent(new Event('input')); }
-    else{ vinMsg.textContent='Could not find a clear 17-character VIN in this photo.'; vinMsg.className='note error'; }
-  }catch(e){ vinMsg.textContent='OCR error. Try a clearer photo of the VIN plate.'; vinMsg.className='note error'; }
-}
+const autoOCR=document.getElementById('autoOCR');
 
-/* ---------- Barcode/QR/PDF417 live scan ---------- */
-let codeReader=null, scanning=false;
-const scanner=document.getElementById('scanner'), video=document.getElementById('video');
-const torchBtn=document.getElementById('torch'), zoomWrap=document.getElementById('zoomWrap'), zoom=document.getElementById('zoom');
-document.getElementById('startScan').onclick=startBarcodeScan;
-document.getElementById('stopScan').onclick=stopBarcodeScan;
+let codeReader=null, scanning=false, ocrBusy=false, ocrTried=false, ocrWorker=null, ocrTimer=null;
+
+scanBtn.onclick=async()=>{ openScanner(); };
+closeScan.onclick=()=>{ stopScan(); closeScanner(); };
+uploadLink.onclick=(e)=>{ e.preventDefault(); filePicker.click(); };
+filePicker.onchange=()=>{ const f=filePicker.files && filePicker.files[0]; if(f) runOCRFile(f); };
+captureOCR.onclick=()=>{ captureAndOCR(); };
+
+function openScanner(){
+  scanOverlay.classList.add('open');
+  scanHint.textContent='Looking for barcode…';
+  scanMsg.textContent='Align door-jamb/windshield sticker. If no barcode is present, tap “Use Photo (OCR)”.';
+  startBarcodeScan();
+}
+function closeScanner(){ scanOverlay.classList.remove('open'); }
 
 async function startBarcodeScan(){
-  if(scanning) return; scanning=true; scanner.style.display='block';
+  if(scanning) return; scanning=true;
   try{
     if(!codeReader){ codeReader=new ZXingBrowser.BrowserMultiFormatReader(); }
     await codeReader.decodeFromVideoDevice(null,'video',(result)=>{
@@ -280,66 +241,116 @@ async function startBarcodeScan(){
         const raw=result.text.toUpperCase();
         const m=raw.match(/[A-HJ-NPR-Z0-9]{17}/);
         const v=m?m[0]:'';
-        if(v){ vinEl.value=v; vinEl.dispatchEvent(new Event('input')); stopBarcodeScan(); }
+        if(v){
+          vinEl.value=v; vinEl.dispatchEvent(new Event('input'));
+          stopScan(); closeScanner();
+        }
       }
     });
     setupTrackControls();
-  }catch(e){ alert('Camera error: '+(e && e.message || e)); stopBarcodeScan(); }
+    // auto-try OCR once if no barcode in 5s
+    if(autoOCR.checked){
+      if(ocrTimer) clearTimeout(ocrTimer);
+      ocrTimer=setTimeout(()=>{ if(!ocrTried) captureAndOCR(true); }, 5000);
+    }
+  }catch(e){
+    scanMsg.textContent='Camera error: '+(e && e.message || e);
+  }
 }
-function stopBarcodeScan(){
+function stopScan(){
   try{ codeReader && codeReader.reset(); }catch(e){}
   const stream=video.srcObject; if(stream){ stream.getTracks().forEach(t=>t.stop()); video.srcObject=null; }
-  scanner.style.display='none'; scanning=false;
+  scanning=false;
+  if(ocrTimer){ clearTimeout(ocrTimer); ocrTimer=null; }
 }
 async function setupTrackControls(){
   try{
     const stream=video.srcObject; if(!stream) return;
-    const track=stream.getVideoTracks()[0]; const caps=track.getCapabilities?track.getCapabilities():{};
-    if(caps.torch){
-      torchBtn.style.display='inline-block'; let on=false;
-      torchBtn.onclick=async()=>{ on=!on; try{ await track.applyConstraints({advanced:[{torch:on}]}); }catch(e){} torchBtn.textContent=on?'Flashlight (ON)':'Flashlight'; };
-    }else{ torchBtn.style.display='none'; }
-    if(caps.zoom){
-      zoomWrap.style.display='inline-flex';
-      zoom.min=caps.zoom.min||1; zoom.max=caps.zoom.max||5; zoom.step=caps.zoom.step||0.1; zoom.value=caps.zoom.min||1;
-      zoom.oninput=async()=>{ try{ await track.applyConstraints({advanced:[{zoom:+zoom.value}]}); }catch(e){} };
-    }else{ zoomWrap.style.display='none'; }
+    const track=stream.getVideoTracks()[0];
+    const caps=track.getCapabilities ? track.getCapabilities() : {};
+    if(caps.torch){ torch.classList.remove('hidden'); let on=false; torch.onclick=async()=>{ on=!on; try{ await track.applyConstraints({advanced:[{torch:on}]}); }catch(e){} torch.textContent=on?'Flashlight (ON)':'Flashlight'; }; }
+    else { torch.classList.add('hidden'); }
+    if(caps.zoom){ zoomWrap.classList.remove('hidden'); zoom.min=caps.zoom.min||1; zoom.max=caps.zoom.max||5; zoom.step=caps.zoom.step||0.1; zoom.value=caps.zoom.min||1; zoom.oninput=async()=>{ try{ await track.applyConstraints({advanced:[{zoom:+zoom.value}]}); }catch(e){} }; }
+    else { zoomWrap.classList.add('hidden'); }
   }catch(e){}
 }
 
-/* ---------- Step 3 + actions ---------- */
-document.getElementById('nextContact').onclick=()=>{ step3.hidden=false; step3.scrollIntoView({behavior:'smooth',block:'start'}); };
+/* ---------- OCR from frame or file ---------- */
+async function getOCRWorker(){
+  if(ocrWorker) return ocrWorker;
+  ocrWorker=Tesseract.createWorker();
+  await ocrWorker.load(); await ocrWorker.loadLanguage('eng'); await ocrWorker.initialize('eng');
+  await ocrWorker.setParameters({ tessedit_char_whitelist:'ABCDEFGHJKLMNPRSTUVWXYZ0123456789' });
+  return ocrWorker;
+}
+function grabFrameDataURL(){
+  const v=video; if(!v || !v.videoWidth) return null;
+  const maxW=1600, maxH=1600;
+  const r=Math.min(maxW/v.videoWidth, maxH/v.videoHeight, 1);
+  const cw=Math.round(v.videoWidth*r), ch=Math.round(v.videoHeight*r);
+  const c=document.createElement('canvas'); c.width=cw; c.height=ch;
+  const ctx=c.getContext('2d'); ctx.drawImage(v,0,0,cw,ch);
+  return c.toDataURL('image/jpeg',0.92);
+}
+async function captureAndOCR(auto=false){
+  if(ocrBusy) return; ocrBusy=true; ocrTried=true;
+  scanHint.textContent='Reading printed VIN…';
+  try{
+    const dataUrl=grabFrameDataURL();
+    if(!dataUrl){ scanMsg.textContent='No camera frame yet. Try again in a moment or Upload photo.'; ocrBusy=false; return; }
+    const worker=await getOCRWorker();
+    const { data }=await worker.recognize(dataUrl);
+    const text=(data && data.text || '').toUpperCase();
+    const candidates=(text.match(/[A-HJ-NPR-Z0-9]{17}/g)||[]).filter(vinCheckDigit);
+    const v=candidates[0] || ((text.match(/[A-HJ-NPR-Z0-9]{17}/)||[])[0]||'');
+    if(v){
+      vinEl.value=v; vinEl.dispatchEvent(new Event('input'));
+      stopScan(); closeScanner();
+    }else{
+      scanMsg.textContent = auto ? 'No barcode found; first OCR attempt didn’t see a full VIN. Try moving closer and press “Use Photo (OCR)” or Upload.' :
+                                   'Couldn’t read a full VIN. Move closer, center the VIN, then tap again.';
+    }
+  }catch(e){
+    scanMsg.textContent='OCR error. Try Upload photo.';
+  }finally{ ocrBusy=false; }
+}
+function downscaleToDataURL(imgSrc,maxW=1600,maxH=1600){
+  return new Promise(res=>{ const img=new Image(); img.onload=()=>{ const r=Math.min(maxW/img.width,maxH/img.height,1); const w=Math.round(img.width*r), h=Math.round(img.height*r); const c=document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); res(c.toDataURL('image/jpeg',0.92)); }; img.src=imgSrc; });
+}
+async function runOCRFile(file){
+  scanHint.textContent='Reading printed VIN…';
+  const rd=new FileReader(); rd.onload=async()=>{
+    try{
+      const dataUrl=await downscaleToDataURL(rd.result);
+      const worker=await getOCRWorker();
+      const { data }=await worker.recognize(dataUrl);
+      const text=(data && data.text || '').toUpperCase();
+      const candidates=(text.match(/[A-HJ-NPR-Z0-9]{17}/g)||[]).filter(vinCheckDigit);
+      const v=candidates[0] || ((text.match(/[A-HJ-NPR-Z0-9]{17}/)||[])[0]||'');
+      if(v){ vinEl.value=v; vinEl.dispatchEvent(new Event('input')); stopScan(); closeScanner(); }
+      else { scanMsg.textContent='Couldn’t find a full VIN in this photo. Try another angle with better light.'; }
+    }catch(e){ scanMsg.textContent='OCR error on file.'; }
+  }; rd.readAsDataURL(file);
+}
 
-function fmt(n){ try{ return new Intl.NumberFormat('en-US').format(+n||0); }catch{ return String(n||''); } }
+/* ---------- Summary + send (Step 3) ---------- */
+function fmt(n){ try{return new Intl.NumberFormat('en-US').format(+n||0);}catch{return String(n||'');} }
 function buildSummary(){
-  const v=vinEl.value.trim().toUpperCase();
-  const y=yearEl.value.trim(), m=modelEl.value.trim(), mi=milesEl.value.trim(), c=conditionEl.value.trim();
+  const v=vinEl.value.trim().toUpperCase(), y=yearEl.value.trim(), m=modelEl.value.trim(), mi=milesEl.value.trim(), c=conditionEl.value.trim();
   const name=(document.getElementById('name').value||'').trim();
   const phone=(document.getElementById('phone').value||'').trim();
   const email=(document.getElementById('email').value||'').trim();
   const valid= v && v.length===17 && vinCheckDigit(v);
-  const lines=[
+  return [
     `SELL lead${valid?' (VIN ✔)':''}`,
     `VIN: ${v||'-'}`,
     `Year/Model: ${[y,m].filter(Boolean).join(' ')||'-'}`,
     `Mileage: ${mi?fmt(mi)+' mi':'-'} | Condition: ${c||'-'}`,
     `Name: ${name||'-'} | Phone: ${phone||'-'}${email?(' | Email: '+email):''}`
-  ];
-  return lines.join('\n');
+  ].join('\n');
 }
-async function copyText(t){
-  try{ await navigator.clipboard.writeText(t); }
-  catch{
-    const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta);
-    ta.select(); document.execCommand('copy'); ta.remove();
-  }
-}
-document.getElementById('sendSms').onclick=()=>{
-  const msg=buildSummary();
-  const dest="+14244256211"; // your receiving number
-  copyText(msg); // convenience fallback
-  location.href=`sms:${dest.replace(/[^0-9+]/g,'')}?&body=${encodeURIComponent(msg)}`;
-};
+async function copyText(t){ try{ await navigator.clipboard.writeText(t); }catch{ const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); } }
+document.getElementById('sendSms').onclick=()=>{ const msg=buildSummary(); const dest="+14244256211"; copyText(msg); location.href=`sms:${dest.replace(/[^0-9+]/g,'')}?&body=${encodeURIComponent(msg)}`; };
 document.getElementById('copySummary').onclick=async()=>{ await copyText(buildSummary()); const s=document.getElementById('sendMsg'); s.textContent='Summary copied.'; setTimeout(()=>s.textContent='',1500); };
 </script>
 </body>
